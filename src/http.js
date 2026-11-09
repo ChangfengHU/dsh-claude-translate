@@ -31,10 +31,12 @@ export function createHandler({ store, engine, credentials, llm, admit }) {
       }
       if (req.method === 'GET' && action === '/state') {
         const info = await credentials.describe('DSH_CLAUDE_TRANSLATE_API_KEY');
-        json(200, { version: '0.1.3', config: store.config, credentialConfigured: info.configured ?? info.present ?? false, providers: llm.listProviders(), active: store.active.size });
+        json(200, { version: '0.1.4', config: store.config, credentialConfigured: info.configured ?? info.present ?? false, providers: llm.listProviders(), active: store.active.size });
       } else if (req.method === 'GET' && action === '/runs') {
-        const runs = await store.list(session ?? '');
-        json(200, { runs: runs.map(r => ({ id: r.id, status: r.status, startedAt: r.startedAt, finishedAt: r.finishedAt, model: r.original.model, translation: r.translation, inputTranslationMs: r.inputTranslationMs, claudeMs: r.claudeMs, preview: r.original.messages.filter(m => m.source.kind === 'user').flatMap(m => m.content.filter(c => c.type === 'text').map(c => c.text)).at(-1)?.slice(0, 90) ?? '', error: r.error })) });
+        const all = await store.list(session ?? '');
+        const purpose = r => r.purpose ?? (r.original.system?.startsWith('Create a concise title') ? 'session-title' : 'conversation');
+        const runs = url.searchParams.get('includeAux') === 'true' ? all : all.filter(r => purpose(r) === 'conversation');
+        json(200, { auxiliaryCount: all.filter(r => purpose(r) !== 'conversation').length, runs: runs.map(r => ({ id: r.id, purpose: purpose(r), status: r.status, startedAt: r.startedAt, finishedAt: r.finishedAt, model: r.original.model, translation: r.translation, inputTranslationMs: r.inputTranslationMs, claudeMs: r.claudeMs, preview: r.original.messages.filter(m => m.source.kind === 'user').flatMap(m => m.content.filter(c => c.type === 'text').map(c => c.text)).at(-1)?.slice(0, 90) ?? '', error: r.error })) });
       } else if (req.method === 'GET' && action === '/run') {
         const run = (await store.list(session ?? '')).find(r => r.id === url.searchParams.get('id'));
         if (!run) json(404, { error: 'Run not found for this session.' }); else json(200, { run });
@@ -62,10 +64,12 @@ export function createHandler({ store, engine, credentials, llm, admit }) {
         await store.saveConfig(c => ({ sessions: { ...c.sessions, [body.sessionId]: body.enabled } }));
         json(200, { ok: true });
       } else if (req.method === 'POST' && action === '/test') {
-        await readJson(req);
+        const body = await readJson(req);
+        const text = body.text ?? '你好，请确认翻译连接正常。';
+        if (typeof text !== 'string' || text.length > 1000 || !text.trim()) throw failure('INVALID_BODY', 'Translation test text must be between 1 and 1000 characters.');
         const meter = { requests: 0, cacheHits: 0, usage: [] }; const started = Date.now();
-        const output = await engine.translator.translate('你好，请确认翻译连接正常。', 'en', structuredClone(store.config), req.signal, meter);
-        json(200, { ok: true, input: '你好，请确认翻译连接正常。', output, durationMs: Date.now() - started, meter });
+        const output = await engine.translator.translate(text, 'en', structuredClone(store.config), req.signal, meter);
+        json(200, { ok: true, input: text, output, durationMs: Date.now() - started, meter });
       } else json(404, { error: 'Unknown translation endpoint.' });
     } catch (error) {
       console.warn('[dsh-claude-translate]', redact(error.stack ?? String(error)));

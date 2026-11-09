@@ -71,7 +71,7 @@ window.__ModuleLoader__.load({
     }
     function View({ sessionId }) {
       const [state, setState] = useState(null); const [runs, setRuns] = useState([]); const [run, setRun] = useState(null); const [selected, setSelected] = useState(''); const selectedRef = useRef('');
-      const [view, setView] = useState('compare'); const [error, setError] = useState(''); const [draft, setDraft] = useState(''); const [sending, setSending] = useState(false); const [rev, setRev] = useState(0);
+      const [view, setView] = useState('compare'); const [error, setError] = useState(''); const [rev, setRev] = useState(0); const [includeAux, setIncludeAux] = useState(false); const [auxCount, setAuxCount] = useState(0);
       const scope = '?session=' + encodeURIComponent(sessionId ?? '');
       const refresh = async () => { const result = await api('/state'); setState(result); return result; };
       useEffect(() => { const abort = new AbortController(); setState(null); setError(''); api('/state', undefined, abort.signal).then(setState).catch(e => { if (!abort.signal.aborted) setError(e.message); }); return () => abort.abort(); }, [sessionId, rev]);
@@ -81,9 +81,10 @@ window.__ModuleLoader__.load({
         async function poll() {
           try {
             if (!document.hidden && sessionId) {
-              const list = await api('/runs' + scope, undefined, abort.signal);
+              const list = await api('/runs' + scope + '&includeAux=' + includeAux, undefined, abort.signal);
               if (abort.signal.aborted) return;
               setRuns(list.runs);
+              setAuxCount(list.auxiliaryCount ?? 0);
               const id = selectedRef.current || list.runs[0]?.id;
               if (id) { const detail = await api('/run' + scope + '&id=' + encodeURIComponent(id), undefined, abort.signal); if (!abort.signal.aborted && (!selectedRef.current || selectedRef.current === id)) { setRun(detail.run); setSelected(id); } }
             }
@@ -91,20 +92,13 @@ window.__ModuleLoader__.load({
           if (!abort.signal.aborted) timer = setTimeout(poll, 1800);
         }
         poll(); return () => { abort.abort(); clearTimeout(timer); };
-      }, [sessionId]);
+      }, [sessionId, includeAux]);
       const enabled = state ? (state.config.sessions[sessionId] ?? state.config.enabled) : false;
       async function toggle() { try { await api('/session', { sessionId, enabled: !enabled }); await refresh(); } catch (e) { setError(e.message); } }
-      async function send() {
-        if (!draft.trim() || sending) return;
-        if (!enabled) { setError('请先配置翻译模型并启用本会话翻译。'); return; }
-        const text = draft; setSending(true); setError(''); selectedRef.current = ''; setDraft('');
-        try { const scoped = View.ctx.get('sessions')?.scope(sessionId); if (!scoped?.conversation) throw Error('当前会话尚未就绪。'); await scoped.conversation.send(text); }
-        catch (e) { setError(e.message); setDraft(text); } finally { setSending(false); }
-      }
       function download() { if (!run) return; const url = URL.createObjectURL(new Blob([JSON.stringify(run, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = run.id + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
       return h('div', { className: 'dct' },
         h('div', { className: 'dct-top' }, h('strong', null, 'Claude 翻译'), h('span', { className: 'dct-muted' }, state ? `${state.config.mode === 'api' ? 'API' : state.config.provider || '未配置'} / ${state.config.model || '--'}` : '连接中…'), h('span', { className: 'dct-grow' }), h('label', { className: 'dct-toggle' }, h('input', { type: 'checkbox', checked: enabled, disabled: !state, onChange: toggle }), '本会话启用'), h('button', { type: 'button', onClick: () => setRev(n => n + 1) }, '刷新')),
-        h('div', { className: 'dct-subnav' }, ...[['compare', '双语对照'], ['raw', '转发请求'], ['settings', '配置']].map(([id, title]) => h('button', { key: id, type: 'button', 'aria-pressed': view === id, onClick: () => setView(id) }, title)), h('span', { className: 'dct-grow' }), view !== 'settings' ? h('button', { type: 'button', disabled: !run, onClick: download }, '导出记录') : null),
+        h('div', { className: 'dct-subnav', style: { flexWrap: 'wrap' } }, ...[['compare', '双语对照'], ['raw', '转发请求'], ['settings', '配置']].map(([id, title]) => h('button', { key: id, type: 'button', 'aria-pressed': view === id, onClick: () => setView(id) }, title)), h('span', { className: 'dct-grow' }), auxCount || includeAux ? h('label', { className: 'dct-toggle dct-muted' }, h('input', { type: 'checkbox', checked: includeAux, onChange: e => setIncludeAux(e.target.checked) }), '辅助请求 ' + auxCount) : null, view !== 'settings' ? h('button', { type: 'button', disabled: !run, onClick: download }, '导出记录') : null),
         error ? h('div', { className: 'dct-alert', role: 'alert' }, error) : null,
         view === 'settings' ? (state ? h(Settings, { key: rev, state, onSaved: refresh }) : h('div', { className: 'dct-empty' }, '正在读取配置')) : h('div', null,
           h('div', { className: 'dct-workspace' }, h('aside', { className: 'dct-runs', 'aria-label': '翻译运行记录' }, runs.length ? runs.map(item => h('button', { key: item.id, type: 'button', 'aria-current': item.id === selected, onClick: () => { selectedRef.current = item.id; setSelected(item.id); setRun(null); } }, h('div', { className: 'dct-run-head' }, h('span', { className: 'dct-badge', 'data-state': item.status }, states[item.status] ?? item.status), new Date(item.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })), h('div', { className: 'dct-run-title' }, item.preview || item.id.slice(0, 11)))) : h('span', { className: 'dct-muted' }, '暂无翻译记录')),
@@ -117,12 +111,10 @@ window.__ModuleLoader__.load({
               ),
             ) : h('main', { className: 'dct-empty' }, runs.length ? '读取运行记录…' : '本会话尚无翻译调用'),
           ),
-          h('div', { className: 'dct-compose' }, h('textarea', { 'aria-label': '发送给 Claude 的原文', value: draft, onChange: e => setDraft(e.target.value), placeholder: '输入原文', disabled: sending, onKeyDown: e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); } } }), h('button', { type: 'button', className: 'primary', disabled: sending || !draft.trim() || !state, onClick: send }, sending ? '提交中…' : '发送到当前会话')),
         ),
       );
     }
     function apply(ctx) {
-      View.ctx = ctx;
       ctx.effect(() => ctx.locale.register(NS, { zh: { tab: '翻译' }, en: { tab: 'Translation' } }), 'claude-translate: labels');
       ctx.effect(() => { const style = document.createElement('style'); style.dataset.claudeTranslate = ''; style.textContent = css; document.head.appendChild(style); return () => style.remove(); }, 'claude-translate: scoped style');
       const t = ctx.locale.bind(NS);

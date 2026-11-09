@@ -54,6 +54,14 @@ The plugin does not change the session's selected main model.
    input translation blocks Claude; failed output translation retains the answer
    and marks the run partial.
 
+Translation uses identified sentence segments. Missing, duplicate or invented
+segment ids, untranslated Chinese prose and suspiciously shortened source
+constraints block forwarding. This detects common omissions but is not a proof
+of semantic equivalence for every possible instruction. Review the bilingual
+request for high-risk actions. Automatic title/compaction requests are labelled
+as auxiliary and excluded from the default conversation list, not discarded.
+Input stays in DSH's original composer; the plugin does not add a second one.
+
 Code fences, inline code, URLs, common filesystem paths, structured JSON text,
 images and literal tool arguments/results are preserved rather than translated.
 Chinese inside those literal data regions is allowed. This is an English

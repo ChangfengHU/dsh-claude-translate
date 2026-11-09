@@ -11,7 +11,7 @@ const makeMessage = input => ({ ...input, id: crypto.randomUUID() });
 const config = { enabled: true, mode: 'route', provider: 'qwen', model: 'qwen-turbo', targetProviders: ['claude-local'] };
 const message = text => ({ id: 'original-message', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] });
 const request = () => ({ provider: 'claude-local', model: 'default', sessionId: 'session-test', system: '系统约束', messages: [message('你好')] });
-const execute = async ({ text }) => { const data = JSON.parse(text); return { text: data.targetLanguage === 'English' ? data.text.replaceAll('系统约束', 'System rules').replaceAll('你好', 'Hello').replaceAll('插件上下文', 'Plugin context') : '你好，已完成。', usage: { inputTokens: 4, outputTokens: 3 } }; };
+const execute = async ({ text }) => { const data = JSON.parse(text); return { text: JSON.stringify({ translations: data.segments.map(segment => ({ id: segment.id, text: data.targetLanguage === 'English' ? segment.text.replaceAll('系统约束', 'System rules').replaceAll('你好', 'Hello').replaceAll('插件上下文', 'Plugin context') : '你好，已完成。' })) }), usage: { inputTokens: 4, outputTokens: 3 } }; };
 
 test('protects code, URLs and credentials without changing their bytes', () => {
   const original = '你好 `中文键` https://example.com/中文 ```js\nconst x="中文";\n``` sk-abcdefghijklmnop';
@@ -24,11 +24,11 @@ test('English prose avoids a paid translation call', async () => {
   assert.equal(await translator.translate('Hello `中文数据`', 'en', config), 'Hello `中文数据`');
 });
 test('rejects Chinese remaining in translated prose', async () => {
-  const translator = new TextTranslator(async () => '未翻译');
+  const translator = new TextTranslator(async () => JSON.stringify({ translations: [{ id: '0', text: '未翻译' }] }));
   await assert.rejects(translator.translate('你好', 'en', config), { code: 'TRANSLATION_NOT_ENGLISH' });
 });
 test('rejects invented end markers found during real provider acceptance', async () => {
-  const translator = new TextTranslator(async () => 'Hello. DSHT_TRANSLATION_END');
+  const translator = new TextTranslator(async () => JSON.stringify({ translations: [{ id: '0', text: 'Hello. DSHT_TRANSLATION_END' }] }));
   await assert.rejects(translator.translate('你好', 'en', config), { code: 'TRANSLATION_LITERAL_MISMATCH' });
 });
 test('caches repeated injection translations', async () => {

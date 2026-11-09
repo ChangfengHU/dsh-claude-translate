@@ -19,7 +19,7 @@ export class TranslationEngine {
     if (!config.model || (config.mode === 'route' && !config.provider)) throw failure('TRANSLATION_NOT_CONFIGURED', 'Configure a translation model before calling Claude Code.');
     if (this.store.active.size >= 8) throw failure('TRANSLATION_BUSY', 'Translation concurrency limit reached. Try again shortly.');
     const run = {
-      version: 1, id: `tr_${randomUUID()}`, sessionId: options.sessionId ?? '_unscoped', startedAt: Date.now(), status: 'translating',
+      version: 1, purpose: options.purpose ?? 'conversation', id: `tr_${randomUUID()}`, sessionId: options.sessionId ?? '_unscoped', startedAt: Date.now(), status: 'translating',
       original: snapshotRequest(options), rawOutput: '', translatedOutput: '',
       translation: { mode: config.mode, provider: config.mode === 'api' ? new URL(config.baseURL).host : config.provider, model: config.model },
       meter: { requests: 0, cacheHits: 0, usage: [] },
@@ -51,6 +51,7 @@ export class TranslationEngine {
           run.claudeFinishedAt = Date.now();
           run.claudeMs = run.claudeFinishedAt - run.forwardedAt;
           run.finishReason = chunk.reason.kind;
+          if (chunk.reason.failure) run.error = { code: chunk.reason.failure.code ?? 'CLAUDE_ERROR', message: redact(chunk.reason.failure.message ?? 'Claude did not complete the request.') };
           run.status = chunk.reason.kind === 'error' ? 'failed' : chunk.reason.kind === 'aborted' ? 'cancelled' : 'succeeded';
           if (run.status === 'succeeded' && config.translateOutput && run.rawOutput) {
             run.status = 'translating-output';
