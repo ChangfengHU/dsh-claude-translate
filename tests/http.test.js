@@ -57,6 +57,19 @@ test('run retrieval is bound to the requested session', async t => {
   assert.equal((await fetch(base + '/api/claude-translate/run?session=session-b&id=tr_1234')).status, 404);
   assert.equal((await fetch(base + '/api/claude-translate/run?session=session-a&id=tr_1234')).status, 200);
 });
+test('Chat metadata, display batches and preferences stay session scoped', async t => {
+  const { post, base, store } = await fixture(t);
+  await store.save({ id: 'tr_ab12', sessionId: 'session-a', purpose: 'conversation', startedAt: Date.now(), status: 'succeeded', rawOutput: 'Three tasks.', translatedOutput: '三件事。', displayStatus: 'ready', position: { turn: 2, step: 1 } });
+  assert.equal((await post('/presentation', { sessionId: 'session-a', presentation: { mode: 'bilingual', layout: 'collapsed' } })).status, 200);
+  const a = await (await fetch(base + '/api/claude-translate/chat?session=session-a')).json();
+  assert.equal(a.presentation.layout, 'collapsed'); assert.equal(a.runs[0].rawOutput, undefined);
+  const unchanged = await (await fetch(base + '/api/claude-translate/chat?session=session-a&revision=' + a.revision)).json(); assert.equal(unchanged.unchanged, true);
+  const b = await (await fetch(base + '/api/claude-translate/chat?session=session-b')).json(); assert.equal(b.presentation.mode, 'zh'); assert.equal(b.runs.length, 0);
+  assert.deepEqual((await (await fetch(base + '/api/claude-translate/display?session=session-b&ids=tr_ab12')).json()).runs, []);
+  assert.equal((await (await fetch(base + '/api/claude-translate/display?session=session-a&ids=tr_ab12')).json()).runs[0].translatedOutput, '三件事。');
+  assert.equal((await post('/presentation', { sessionId: 'session-a', presentation: { mode: 'zh', layout: 'bad' } })).status, 400);
+  assert.equal((await post('/presentation', { sessionId: 'session-a', presentation: { mode: 'en', layout: 'stacked' } }, 'https://attacker.example')).status, 403);
+});
 test('translation connection test never calls Claude', async t => {
   const { post } = await fixture(t);
   const response = await post('/test', {}); assert.equal(response.status, 200); assert.equal((await response.json()).output, 'Hello, connection verified.');

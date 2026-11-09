@@ -145,7 +145,7 @@ window.__ModuleLoader__.load({
       const enabled = state ? state.config.sessions[sessionId] ?? state.config.enabled : false;
       async function toggle() { try { await api('/session', { sessionId, enabled: !enabled }); await refresh(); } catch (e) { setError(e.message); } }
       const firstItem = (cursors.length - 1) * 20;
-      return h('div', { className: 'dct', 'data-version': '0.2.3' },
+      return h('div', { className: 'dct', 'data-version': '0.3.1' },
         h('header', { className: 'dct-head' }, h('h2', null, '翻译调用'), h('span', { className: 'dct-muted dct-model', title: state?.config.model }, state?.config.model || '未配置翻译模型'),
           h('span', { className: 'dct-grow' }), h('label', { className: 'dct-toggle' }, h('input', { type: 'checkbox', checked: enabled, disabled: !state, onChange: toggle }), '本会话启用'),
           h('button', { type: 'button', className: 'dct-icon', title: '刷新调用记录', 'aria-label': '刷新调用记录', onClick: () => setRev(n => n + 1) }, '↻')),
@@ -172,9 +172,139 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', disabled: cursors.length <= 1 || loading, onClick: () => setCursors(old => old.slice(0, -1)) }, '上一页'),
               h('button', { type: 'button', disabled: !page.nextCursor || loading, onClick: () => setCursors(old => [...old, page.nextCursor]) }, '下一页'))));
     }
+
+    const chatCSS = `
+.dct-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0;font:inherit;font-size:12px;letter-spacing:0}.dct-controls label{display:flex;align-items:center;gap:5px;white-space:nowrap}.dct-controls input{accent-color:#4e6cc9}.dct-controls select{font:inherit;color:inherit;background:var(--dsw-alias-bg-primary,#fff);border:1px solid var(--dsw-alias-border-l2,#e2e5ea);border-radius:5px;max-width:124px;padding:3px 5px}.dct-controls select:focus-visible{outline:2px solid #5b76d4}.dct-controls [role=alert]{color:#b45b50;font-size:11px;max-width:240px}
+.dct-reply{min-width:0;width:100%;letter-spacing:0;container-type:inline-size}.dct-reply-head{display:flex;gap:10px;align-items:center;margin:4px 0 9px;font-size:11px;line-height:22px;color:var(--dsw-alias-label-secondary,#828a98)}.dct-reply-head button{border:0;background:transparent;color:inherit;font:inherit;padding:0 3px;cursor:pointer}.dct-reply-head button:hover{color:#4965c5}.dct-reply-grid{display:grid;gap:20px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dct-reply[data-layout=stacked] .dct-reply-grid{grid-template-columns:minmax(0,1fr);gap:16px}.dct-language{font-size:11px;font-weight:550;color:var(--dsw-alias-label-secondary,#828a98);padding-bottom:7px;margin-bottom:10px;border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ed)}.dct-language[data-lang=zh]{border-color:#83b8a3;color:#3d8068}.dct-language[data-lang=en]{border-color:#a0b2d5;color:#617cae}.dct-reply-pane{min-width:0;overflow-wrap:anywhere}.dct-reply details{border-top:1px solid var(--dsw-alias-border-l2,#e4e7ed);margin-top:14px;padding-top:8px}.dct-reply summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary,#7b8491);padding:4px 0}.dct-pending{color:var(--dsw-alias-label-secondary,#7b8491);font-size:13px;padding:8px 0}.dct-reply-error{border-left:2px solid #b87967;padding:5px 10px;margin:6px 0 10px;font-size:12px;color:#a26453}
+@container(max-width:560px){.dct-reply-grid{grid-template-columns:minmax(0,1fr);gap:16px}}
+`;
+    const channels = new Map();
+    function channel(sessionId) {
+      if (channels.has(sessionId)) return channels.get(sessionId);
+      const listeners = new Set(), wanted = new Set(), details = new Map();
+      let snapshot = { runs: [], presentation: { mode: 'zh', layout: 'parallel' }, enabled: false, loaded: false };
+      let timer, batchTimer, refs = 0, busy = false, stopped = false, revision = '', pendingConfig = 0, configEpoch = 0;
+      const abort = new AbortController();
+      const emit = value => { snapshot = { ...snapshot, ...value }; for (const fn of listeners) fn(); };
+      function trim() {
+        const retained = new Set(snapshot.runs.map(r => r.id));
+        for (const id of details.keys()) if (!retained.has(id)) details.delete(id);
+        for (const id of details.keys()) if (details.size > 30 && !wanted.has(id)) details.delete(id);
+      }
+      async function batch() {
+        batchTimer = undefined;
+        const ids = snapshot.runs.filter(r => wanted.has(r.id) && details.get(r.id)?.revision !== r.revision).slice(0, 20).map(r => r.id);
+        if (!ids.length || stopped) return;
+        try {
+          const result = await api('/display?session=' + encodeURIComponent(sessionId) + '&ids=' + ids.join(','), undefined, abort.signal);
+          for (const run of result.runs) details.set(run.id, run);
+          trim(); emit({ detailRevision: (snapshot.detailRevision ?? 0) + 1, error: '' });
+        } catch (e) { if (!abort.signal.aborted) emit({ error: e.message }); }
+      }
+      function scheduleBatch() { if (!batchTimer) batchTimer = setTimeout(batch, 25); }
+      async function poll() {
+        clearTimeout(timer);
+        if (busy || stopped || !refs) return;
+        busy = true;
+        try {
+          if (!document.hidden) {
+            const epoch = configEpoch;
+            const result = await api('/chat?session=' + encodeURIComponent(sessionId) + '&revision=' + revision, undefined, abort.signal);
+            if (!result.unchanged) {
+              const staleConfig = pendingConfig > 0 || epoch !== configEpoch;
+              revision = staleConfig ? '' : result.revision;
+              emit({ ...result, ...(staleConfig ? { enabled: snapshot.enabled, presentation: snapshot.presentation } : {}), loaded: true, error: '' }); trim();
+            }
+            scheduleBatch();
+          }
+        } catch (e) { if (!abort.signal.aborted) emit({ error: e.message }); }
+        finally { busy = false; if (!stopped && refs) timer = setTimeout(poll, snapshot.runs.some(r => ['translating', 'running', 'translating-output'].includes(r.status) && r.displayStatus !== 'interrupted') ? 900 : 3500); }
+      }
+      const result = {
+        getSnapshot: () => snapshot,
+        subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+        connect() { refs++; stopped = false; poll(); return () => { refs--; if (!refs) { clearTimeout(timer); clearTimeout(batchTimer); } }; },
+        watch(id) { wanted.add(id); scheduleBatch(); return () => wanted.delete(id); },
+        detail: id => details.get(id),
+        async preference(preference) { const previous = snapshot.presentation; pendingConfig++; configEpoch++; emit({ presentation: preference }); try { await api('/presentation', { sessionId, presentation: preference }); } catch (e) { emit({ presentation: previous }); throw e; } finally { pendingConfig--; revision = ''; poll(); } },
+        async toggle() { const previous = snapshot.enabled; pendingConfig++; configEpoch++; emit({ enabled: !previous }); try { await api('/session', { sessionId, enabled: !previous }); } catch (e) { emit({ enabled: previous }); throw e; } finally { pendingConfig--; revision = ''; poll(); } },
+        dispose() { stopped = true; abort.abort(); clearTimeout(timer); clearTimeout(batchTimer); listeners.clear(); details.clear(); },
+      };
+      channels.set(sessionId, result);
+      if (channels.size > 6) for (const [id, old] of channels) { if (id !== sessionId && old.unused()) { old.dispose(); channels.delete(id); break; } }
+      result.unused = () => !refs;
+      return result;
+    }
+    function useChannel(sessionId) {
+      const bus = React.useMemo(() => channel(sessionId), [sessionId]);
+      const state = React.useSyncExternalStore(bus.subscribe, bus.getSnapshot);
+      useEffect(() => bus.connect(), [bus]);
+      return [bus, state];
+    }
+    function ReplyControls({ sessionId }) {
+      const [bus, state] = useChannel(sessionId);
+      const [busy, setBusy] = useState(false), [error, setError] = useState('');
+      async function save(fn) { setBusy(true); setError(''); try { await fn(); } catch (e) { setError(e.message); } finally { setBusy(false); } }
+      return h('div', { className: 'dct-controls', 'data-translate-controls': '0.3.1' },
+        h('label', null, h('input', { type: 'checkbox', checked: state.enabled, disabled: busy || !state.loaded, onChange: () => save(() => bus.toggle()) }), '中英转换'),
+        h('select', { 'aria-label': '回复语言', title: '回复语言', value: state.presentation.mode, disabled: busy || !state.loaded, onChange: e => save(() => bus.preference({ ...state.presentation, mode: e.target.value })) },
+          h('option', { value: 'zh' }, '纯中文'), h('option', { value: 'en' }, '纯英文'), h('option', { value: 'bilingual' }, '中英双语')),
+        state.presentation.mode === 'bilingual' ? h('select', { 'aria-label': '双语样式', title: '双语样式', value: state.presentation.layout, disabled: busy, onChange: e => save(() => bus.preference({ ...state.presentation, layout: e.target.value })) },
+          h('option', { value: 'parallel' }, '左右对照'), h('option', { value: 'stacked' }, '上下对照'), h('option', { value: 'collapsed' }, '中文＋折叠英文')) : null,
+        error || state.error ? h('span', { role: 'alert' }, error || state.error) : null);
+    }
+    function projectText(node, text, { textOnly = false, omitText = false } = {}) {
+      let inserted = false;
+      const blocks = node.data.blocks.flatMap(block => {
+        if (block.kind !== 'text') return textOnly ? [] : [block];
+        if (omitText || inserted) return [];
+        inserted = true; return [{ ...block, text }];
+      });
+      return { ...node, data: { ...node.data, blocks } };
+    }
+    function TranslatedAssistant({ baseEntry, originalT, ...props }) {
+      const { node, sessionId } = props;
+      const [bus, state] = useChannel(sessionId);
+      const ref = useRef(null), [visible, setVisible] = useState(false);
+      useEffect(() => {
+        if (!ref.current) return;
+        const observer = new IntersectionObserver(entries => { for (const entry of entries) setVisible(entry.isIntersecting); }, { rootMargin: '200px' });
+        observer.observe(ref.current); return () => observer.disconnect();
+      }, []);
+      const meta = state.runs.find(r => r.position?.turn === node.data.turn && r.position?.step === node.data.step);
+      useEffect(() => visible && meta ? bus.watch(meta.id) : undefined, [bus, visible, meta?.id, meta?.revision]);
+      const run = meta && bus.detail(meta.id);
+      const base = (projected = node) => h(baseEntry.component, { ...props, t: originalT, node: projected });
+      if (!meta || state.presentation.mode === 'en') return h('div', { ref, 'data-dct-original': true }, base());
+      const raw = node.data.blocks.filter(b => b.kind === 'text').map(b => b.text).join('\n\n');
+      if (!raw) return h('div', { ref }, base());
+      const zh = run?.translatedOutput;
+      const failed = ['failed', 'interrupted', 'unavailable'].includes(run?.displayStatus ?? meta.displayStatus);
+      const bilingual = state.presentation.mode === 'bilingual';
+      const primary = zh ? base(projectText(node, zh, { textOnly: bilingual })) : bilingual ? null : base(projectText(node, '', { omitText: true }));
+      const english = () => base(projectText(node, raw, { textOnly: true }));
+      const languagePane = (lang, content) => h('section', { className: 'dct-reply-pane', lang: lang === 'zh' ? 'zh-CN' : 'en' }, h('div', { className: 'dct-language', 'data-lang': lang }, lang === 'zh' ? '中文' : 'English'), content);
+      const chinese = h(React.Fragment, null, primary, !zh ? h('div', { className: 'dct-pending', role: 'status' }, failed ? '中文译文暂不可用' : meta.displayStatus === 'ready' ? '正在读取中文回复…' : node.data.status === 'running' ? 'Claude 正在执行…' : '正在生成中文回复…') : null);
+      const mode = state.presentation.mode, layout = state.presentation.layout;
+      return h('div', { ref, className: 'dct-reply', 'data-mode': mode, 'data-layout': layout, 'data-run': meta.id },
+        bilingual ? base(projectText(node, '', { omitText: true })) : null,
+        h('div', { className: 'dct-reply-head' }, h('span', null, mode === 'zh' ? '中文' : '中英双语'), zh ? h('button', { type: 'button', title: '复制中文回复', onClick: () => navigator.clipboard.writeText(zh).catch(() => {}) }, '复制中文') : null),
+        failed && !zh ? h('div', { className: 'dct-reply-error', role: 'alert' }, '中文译文未完成，以下保留英文原文。') : null,
+        mode === 'bilingual' && layout !== 'collapsed' ? h('div', { className: 'dct-reply-grid' }, languagePane('zh', chinese), languagePane('en', english())) :
+          h(React.Fragment, null, chinese, mode === 'bilingual' || failed ? h('details', { open: failed || undefined }, h('summary', null, 'English · 原始回复'), english()) : null));
+    }
+
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(NS, { zh: { tab: '翻译' }, en: { tab: 'Translation' } }), 'claude-translate: labels');
-      ctx.effect(() => { const style = document.createElement('style'); style.dataset.claudeTranslate = ''; style.textContent = css; document.head.appendChild(style); return () => style.remove(); }, 'claude-translate: scoped style');
+      ctx.effect(() => { const style = document.createElement('style'); style.dataset.claudeTranslate = ''; style.textContent = css + chatCSS; document.head.appendChild(style); return () => style.remove(); }, 'claude-translate: scoped style');
+      ctx.slots.inject('conversation.input.left', () => ctx.slots.register({ name: 'conversation.input.left', id: 'claude-translate-controls', order: 40 }, ReplyControls));
+      function Assistant(props) {
+        React.useSyncExternalStore(fn => ctx.slots.subscribe('conversation.chat.node', fn), () => ctx.slots.getVersion('conversation.chat.node'));
+        const baseEntry = ctx.slots.entries('conversation.chat.node').filter(e => e.options.key === 'assistant-step' && e.component !== Assistant).sort((a, b) => (a.options.priority ?? 0) - (b.options.priority ?? 0))[0];
+        return baseEntry ? h(TranslatedAssistant, { ...props, baseEntry, originalT: baseEntry.locale ? ctx.locale.bind(baseEntry.locale) : props.t }) : null;
+      }
+      ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({ name: 'conversation.chat.node', key: 'assistant-step', priority: -20, locale: NS }, Assistant));
+      ctx.effect(() => () => { for (const bus of channels.values()) bus.dispose(); channels.clear(); }, 'claude-translate: chat subscriptions');
       const t = ctx.locale.bind(NS);
       ctx.slots.inject('conversation.view', () => ctx.slots.register({ name: 'conversation.view', id: 'claude-translate', order: 25, locale: NS, label: () => t('tab') }, props => h(View, props)));
     }

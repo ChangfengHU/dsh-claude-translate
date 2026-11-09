@@ -6,9 +6,10 @@ import { TranslationEngine } from './engine.js';
 import { createExecutor } from './provider.js';
 import { createRpcHandler, CHANNEL } from './rpc.js';
 import { StreamBypass } from './bypass.js';
+import { currentPosition, legacyPosition } from './presentation.js';
 
 export const name = 'dsh-claude-translate';
-export const inject = ['llm', 'credentials', 'connection'];
+export const inject = ['llm', 'credentials', 'connection', 'sessions'];
 
 export async function apply(ctx) {
   const profileIndex = process.argv.indexOf('--profile');
@@ -26,7 +27,20 @@ export async function apply(ctx) {
   };
   const llm = { listProviders: () => ctx.llm.listProviders(), listModels: provider => ctx.llm.listModels(provider) };
   const execute = createExecutor({ dispatch, makeMessage: createMessage, credentials });
-  const engine = new TranslationEngine({ store, execute, makeMessage: createMessage, dispatch });
+  const engine = new TranslationEngine({ store, execute, makeMessage: createMessage, dispatch, position: id => currentPosition(ctx.sessions.get(id)?.events) });
+  ctx.on('dispose', () => engine.dispose());
+  const attempted = new Set();
+  const reconcile = async session => {
+    const events = ctx.sessions.get(session)?.events;
+    if (!events) return;
+    for (const id of attempted) if (!store.index.has(id)) attempted.delete(id);
+    for (const meta of store.displayPage(session)) if (!meta.position && !store.active.has(meta.id) && !attempted.has(meta.id)) {
+      attempted.add(meta.id);
+      const run = await store.get(session, meta.id);
+      const position = run && legacyPosition(run, events);
+      if (position) { run.position = position; await store.save(run); }
+    }
+  };
   ctx.on('llm/stream', (options, next) => bypass.active ? next() : engine.stream(options, next));
-  ctx.connection.rpc.handle(CHANNEL, createRpcHandler({ store, engine, credentials, llm }), { authority: 'trusted-host' });
+  ctx.connection.rpc.handle(CHANNEL, createRpcHandler({ store, engine, credentials, llm, reconcile }), { authority: 'trusted-host' });
 }

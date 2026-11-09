@@ -2,6 +2,8 @@ import { createHash, randomBytes } from 'node:crypto';
 
 export const HAN = /\p{Script=Han}/u;
 export const hash = value => createHash('sha256').update(value).digest('hex');
+export const PIPELINE = 'literal-v3';
+export const translationKey = (text, direction, config) => hash(JSON.stringify([PIPELINE, config.mode, config.provider, config.model, config.baseURL, direction, text]));
 export function failure(code, message) { return Object.assign(new Error(message), { code }); }
 
 export function redact(text) {
@@ -48,7 +50,7 @@ export class TextTranslator {
   async translate(text, direction, config, signal, meter) {
     signal?.throwIfAborted();
     if (!text.trim()) return text;
-    const key = hash(JSON.stringify([config.mode, config.provider, config.model, config.baseURL, direction, text]));
+    const key = translationKey(text, direction, config);
     if (this.cache.has(key)) { if (meter) meter.cacheHits++; return this.cache.get(key); }
     const shield = protect(text, { quotedLiterals: direction === 'en' });
     if (direction === 'en' && !HAN.test(shield.text)) return text;
@@ -57,7 +59,7 @@ export class TextTranslator {
     if (shield.text.length > 30000) throw failure('TRANSLATION_TOO_LARGE', 'A prose block exceeds 30,000 characters. Split it before calling Claude Code.');
     const pieces = [...new Intl.Segmenter(direction === 'en' ? 'zh' : 'en', { granularity: 'sentence' }).segment(shield.text)].map((item, index) => ({ id: String(index), text: item.segment, translate: Boolean(item.segment.trim()) && (direction !== 'en' || HAN.test(item.segment)) }));
     const rows = new Map();
-    const segmentKey = text => hash(JSON.stringify([config.mode, config.provider, config.model, config.baseURL, direction, text]));
+    const segmentKey = text => translationKey(text, direction, config);
     const pending = pieces.filter(piece => piece.translate).map(piece => ({ id: piece.id, text: piece.text.trim() })).filter(piece => {
       if (!piece.text.includes('DSHT_') && this.segmentCache.has(segmentKey(piece.text))) {
         rows.set(piece.id, this.segmentCache.get(segmentKey(piece.text))); if (meter) meter.cacheHits++; return false;
@@ -100,10 +102,13 @@ export class TextTranslator {
     }
     for (const piece of pending) if (!piece.text.includes('DSHT_') && piece.text.length < 4000) this.segmentCache.set(segmentKey(piece.text), rows.get(piece.id));
     while (this.segmentCache.size > 2000) this.segmentCache.delete(this.segmentCache.keys().next().value);
-    this.cache.set(key, output);
+    this.remember(text, output, direction, config);
+    return output;
+  }
+  remember(text, output, direction, config) {
+    this.cache.set(translationKey(text, direction, config), output);
     let cacheBytes = [...this.cache.values()].reduce((n, value) => n + value.length * 2, 0);
     while (this.cache.size > this.cacheSize || cacheBytes > 2 * 1024 * 1024) { const first = this.cache.keys().next().value; cacheBytes -= this.cache.get(first).length * 2; this.cache.delete(first); }
-    return output;
   }
 }
 

@@ -2,12 +2,16 @@ import { mkdir, readdir, readFile, writeFile, rename, rm, stat } from 'node:fs/p
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { failure, redact, hash } from './text.js';
+import { DEFAULT_PRESENTATION, validatePresentation } from './presentation.js';
 
-export const DEFAULT_CONFIG = Object.freeze({ enabled: false, mode: 'route', provider: '', model: '', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', targetProviders: ['claude-local'], translateOutput: true, timeoutMs: 45000, retentionDays: 7, sessions: {} });
+export const DEFAULT_CONFIG = Object.freeze({ enabled: false, mode: 'route', provider: '', model: '', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', targetProviders: ['claude-local'], translateOutput: true, timeoutMs: 45000, retentionDays: 7, sessions: {}, presentation: DEFAULT_PRESENTATION, sessionPresentation: {} });
 export function validateConfig(value) {
   const c = { ...DEFAULT_CONFIG, ...value };
   const allowed = Object.keys(DEFAULT_CONFIG);
   if (Object.keys(value).some(k => !allowed.includes(k))) throw failure('INVALID_CONFIG', 'Unknown configuration field.');
+  c.presentation = validatePresentation(c.presentation);
+  if (!c.sessionPresentation || typeof c.sessionPresentation !== 'object' || Array.isArray(c.sessionPresentation) || Object.keys(c.sessionPresentation).length > 10000) throw failure('INVALID_CONFIG', 'Invalid presentation sessions.');
+  for (const [id, preference] of Object.entries(c.sessionPresentation)) { if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) throw failure('INVALID_CONFIG', 'Invalid presentation session.'); validatePresentation(preference); }
   if (typeof c.enabled !== 'boolean' || typeof c.translateOutput !== 'boolean' || !['route', 'api'].includes(c.mode)) throw failure('INVALID_CONFIG', 'Invalid translation mode.');
   if (![c.provider, c.model, c.baseURL].every(x => typeof x === 'string' && x.length < 1000 && !/[\r\n\0]/.test(x))) throw failure('INVALID_CONFIG', 'Invalid provider or model.');
   if (c.provider.includes('claude')) throw failure('TRANSLATION_RECURSION', 'Claude Code cannot translate its own input. Choose Qwen, DeepSeek or local Codex.');
@@ -25,7 +29,7 @@ export function validateConfig(value) {
 export function runSummary(r) {
   const user = request => request?.messages?.filter(m => m.source?.kind === 'user').flatMap(m => m.content?.filter(b => b.type === 'text').map(b => b.text) ?? []).at(-1) ?? '';
   return { id: r.id, sessionId: r.sessionId, purpose: r.purpose ?? (r.original?.system?.startsWith('Create a concise title') ? 'session-title' : 'conversation'),
-    status: r.status, startedAt: r.startedAt, finishedAt: r.finishedAt, model: r.original?.model,
+    status: r.status, startedAt: r.startedAt, finishedAt: r.finishedAt, model: r.original?.model, position: r.position, displayStatus: r.displayStatus,
     translation: r.translation, inputTranslationMs: r.inputTranslationMs, claudeMs: r.claudeMs, outputTranslationMs: r.outputTranslationMs,
     preview: user(r.original).slice(0, 140), input: user(r.original), forwardedInput: user(r.forwarded),
     error: r.error, revision: [r.status, r.updatedAt ?? 0, r.rawOutput?.length ?? 0, r.translatedOutput?.length ?? 0].join(':') };
@@ -41,7 +45,7 @@ export function compactRun(r) {
 export class Store {
   constructor(directory, { maxRuns = 100, maxBytes = 64 * 1024 * 1024 } = {}) {
     this.directory = directory; this.runs = join(directory, 'runs'); this.blobs = join(directory, 'blobs');
-    this.active = new Map(); this.index = new Map(); this.sessions = new Map(); this.blobInfo = new Map();
+    this.active = new Map(); this.index = new Map(); this.sessions = new Map(); this.blobInfo = new Map(); this.display = new Map();
     this.config = { ...DEFAULT_CONFIG, sessions: {} }; this.queue = Promise.resolve(); this.writeQueue = Promise.resolve();
     this.maxRuns = maxRuns; this.maxBytes = maxBytes; this.metrics = { listReads: 0, detailReads: 0 };
   }
@@ -57,8 +61,10 @@ export class Store {
       try {
         const raw = await readFile(file, 'utf8'); const saved = JSON.parse(raw);
         const r = saved.format === 2 ? saved.run : saved;
+        if (r.displayStatus === 'pending' && r.claudeFinishedAt) { r.displayStatus = 'interrupted'; r.outputTranslationError = { code: 'DISPLAY_INTERRUPTED', message: 'Display translation was interrupted by a restart. The original answer is retained.' }; }
         const summary = saved.format === 2 ? saved.summary : runSummary(r);
         this.putIndex(r.id, { summary, size: Buffer.byteLength(raw), refs: saved.refs ?? [] });
+        this.putDisplay(r, summary);
       } catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
     await this.prune();
@@ -73,6 +79,24 @@ export class Store {
     this.queue = job.catch(() => {}); return job;
   }
   session(id) { if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) throw failure('INVALID_SESSION', 'Invalid session identifier.'); }
+  putDisplay(run, summary = runSummary(run)) {
+    this.display.set(run.id, { id: run.id, sessionId: run.sessionId, purpose: summary.purpose, position: run.position, startedAt: run.startedAt, status: run.status, displayStatus: run.displayStatus ?? (run.translatedOutput ? 'ready' : run.status === 'translating-output' ? 'interrupted' : 'unavailable'), rawOutput: run.rawOutput ?? '', translatedOutput: run.translatedOutput ?? '', outputTranslationError: run.outputTranslationError, revision: summary.revision });
+  }
+  displayPage(session) {
+    this.session(session);
+    const records = new Map((this.sessions.get(session) ?? []).map(id => [id, this.display.get(id)]));
+    for (const run of this.active.values()) if (run.sessionId === session) records.set(run.id, { ...run, displayStatus: run.displayStatus ?? 'pending', revision: runSummary(run).revision });
+    return [...records.values()].filter(r => r && r.purpose === 'conversation').map(({ id, position, status, displayStatus, revision, startedAt }) => ({ id, position, status, displayStatus, revision, startedAt }));
+  }
+  displayRuns(session, ids) {
+    this.session(session);
+    if (!Array.isArray(ids) || ids.length > 20 || ids.some(id => !/^tr_[a-f0-9-]{1,80}$/.test(id))) throw failure('INVALID_BODY', 'Invalid display batch.');
+    return ids.flatMap(id => {
+      const r = this.active.get(id) ?? this.display.get(id);
+      if (!r || r.sessionId !== session || (r.purpose ?? 'conversation') !== 'conversation') return [];
+      return [{ id, position: r.position, status: r.status, displayStatus: r.displayStatus ?? (r.translatedOutput ? 'ready' : 'unavailable'), rawOutput: r.rawOutput, translatedOutput: r.translatedOutput, outputTranslationError: r.outputTranslationError, revision: r.revision ?? runSummary(r).revision }];
+    });
+  }
   putIndex(id, value) {
     const previous = this.index.get(id);
     if (previous) for (const ref of previous.refs) { const info = this.blobInfo.get(ref); if (info) info.refs--; }
@@ -103,6 +127,7 @@ export class Store {
       const saved = { format: 2, run: packed, summary: metadata, refs: [...refs] };
       await this.atomic(join(this.runs, clean.id + '.json'), saved);
       this.putIndex(clean.id, { summary: metadata, refs: saved.refs, size: Buffer.byteLength(JSON.stringify(saved)) });
+      this.putDisplay(clean);
       if (this.index.size > this.maxRuns) await this.pruneNow();
     });
     this.writeQueue = job.catch(() => {}); return job;
@@ -166,7 +191,7 @@ export class Store {
     for (const [id, item] of files.reverse()) {
       if (this.active.has(id)) continue;
       if (count <= this.maxRuns && bytes <= this.maxBytes && item.summary.startedAt >= Date.now() - this.config.retentionDays * 86400000) continue;
-      await rm(join(this.runs, id + '.json'), { force: true }); this.index.delete(id); count--; bytes -= item.size;
+      await rm(join(this.runs, id + '.json'), { force: true }); this.index.delete(id); this.display.delete(id); count--; bytes -= item.size;
       const ids = this.sessions.get(item.summary.sessionId) ?? []; this.sessions.set(item.summary.sessionId, ids.filter(value => value !== id));
       for (const ref of item.refs) { const info = this.blobInfo.get(ref); if (info) { info.refs--; if (info.refs <= 0) bytes -= info.size; } }
     }

@@ -102,6 +102,7 @@ test('forwards translated input once and retains the exact English response', as
   const chunks = await collect(engine.stream(request(), () => { throw Error('original must not dispatch'); }));
   assert.equal(dispatched, 1);
   assert.equal(chunks.at(-1).type, 'finish');
+  await engine.idle();
   const [run] = await store.list('session-test');
   assert.equal(run.status, 'succeeded'); assert.equal(run.rawOutput, 'Hello.'); assert.equal(run.translatedOutput, '你好，已完成。');
   assert.equal(run.original.messages[0].content[0].text, '你好');
@@ -119,6 +120,7 @@ test('output translation failure does not discard a successful Claude answer', a
   const store = await fixture(t);
   const engine = new TranslationEngine({ store, makeMessage, execute: args => JSON.parse(args.text).targetLanguage === 'English' ? execute(args) : Promise.reject(Error('display translator down')), dispatch: englishReply });
   await collect(engine.stream(request(), () => englishReply()));
+  await engine.idle();
   const [run] = await store.list('session-test'); assert.equal(run.status, 'partial'); assert.equal(run.rawOutput, 'Hello.');
 });
 test('other model routes and disabled sessions are untouched', async t => {

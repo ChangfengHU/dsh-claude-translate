@@ -45,7 +45,33 @@ The repository's release assets contain the translation package. A companion
 adapter release must be installed separately; this repository does not bundle a
 private machine's installed adapter or its login data.
 
-## Timeline, Not a Second Chat
+## Read Replies Your Way
+
+The native Chat composer now offers **Chinese**, **English**, and **bilingual**
+reply presentation. Chinese is the default presentation; enabling translation
+still remains explicit. Bilingual layouts include side-by-side, stacked, and
+Chinese with collapsible English. Preferences are saved per session and survive
+reloads and Host restarts. At narrow widths side-by-side falls back to stacked.
+
+Enable **中英转换** before the first message of a new Claude session. Your input
+stays exactly as you typed it. Display choices never rewrite canonical English
+model history, switch the main model, or trigger another Claude request.
+The separate Translation tab still provides the original and actual forwarded
+requests. Native images, file links, previews, approvals, tool actions and
+collapsed reasoning remain owned by the companion renderer.
+
+Claude's terminal event no longer waits for the Chinese display translation.
+The display is filled asynchronously; a failed or interrupted translation keeps
+the English answer available. Native Copy continues to copy canonical text;
+**复制中文** copies the displayed Chinese.
+
+Chat uses a shared session metadata subscription and batches text reads for
+visible replies. It does not download full request snapshots for every bubble.
+Only retained translation runs have bilingual evidence: after the 100-run/age/
+size limit prunes a trace, native conversation history remains available without
+silently calling a model to retranslate it.
+
+## Inspect the Timeline
 
 - A compact row per invocation, with input-translation / Claude / reply-translation
   phases, real timings, status, model and timestamp.
@@ -73,6 +99,12 @@ Changing nearby English session metadata no longer forces all static Chinese
 context to be translated again. Existing English-only input incurs no input
 translation call. Failed/incomplete input translation blocks Claude rather than
 silently dropping instructions.
+
+After restart, matching retained snapshots can warm the block cache. Reuse is
+bound to the translation pipeline, provider, model, endpoint and exact text;
+changing one invalidates reuse. This is bounded by existing trace retention, not
+an additional unbounded cache. First-use translation and changed context can
+still take time; the plugin does not claim every request is instantaneous.
 
 Invalid segment output receives at most one strict, metered repair attempt.
 If it still fails, Claude is not called. Repairs are not endless retries.

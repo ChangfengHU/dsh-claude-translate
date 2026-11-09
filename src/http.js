@@ -1,5 +1,7 @@
 import { failure, redact } from './text.js';
 import { validateConfig } from './store.js';
+import { validatePresentation } from './presentation.js';
+import { hash } from './text.js';
 
 export const PREFIX = '/api/claude-translate';
 export async function readJson(req, maxBytes = 20000) {
@@ -11,7 +13,7 @@ export async function readJson(req, maxBytes = 20000) {
   return value;
 }
 
-export function createHandler({ store, engine, credentials, llm, admit }) {
+export function createHandler({ store, engine, credentials, llm, admit, reconcile = async () => {} }) {
   return async (req, res) => {
     function json(status, value) {
       const body = JSON.stringify(value);
@@ -31,11 +33,28 @@ export function createHandler({ store, engine, credentials, llm, admit }) {
       }
       if (req.method === 'GET' && action === '/state') {
         const info = await credentials.describe('DSH_CLAUDE_TRANSLATE_API_KEY');
-        const config = { ...store.config, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {} };
+        const config = { ...store.config, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {}, sessionPresentation: session && store.config.sessionPresentation[session] ? { [session]: store.config.sessionPresentation[session] } : {} };
         const providers = llm.listProviders();
-        json(200, { version: '0.2.3', config, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size,
+        json(200, { version: '0.3.1', config, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size, displayJobs: engine.jobs?.size ?? 0,
           environment: { claudeRoute: providers.some(p => store.config.targetProviders.includes(p.id)), codexRoute: providers.some(p => /codex/i.test(p.id)) },
           history: { maxRuns: store.maxRuns, maxBytes: store.maxBytes } });
+      } else if (req.method === 'GET' && action === '/chat') {
+        store.session(session ?? '');
+        await reconcile(session);
+        const runs = store.displayPage(session);
+        const presentation = store.config.sessionPresentation[session] ?? store.config.presentation;
+        const enabled = store.config.sessions[session] ?? store.config.enabled;
+        const revision = hash(JSON.stringify([runs, presentation, enabled]));
+        json(200, revision === url.searchParams.get('revision') ? { unchanged: true, revision } : { revision, runs, presentation, enabled });
+      } else if (req.method === 'GET' && action === '/display') {
+        const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean);
+        json(200, { runs: store.displayRuns(session ?? '', ids) });
+      } else if (req.method === 'POST' && action === '/presentation') {
+        const body = await readJson(req);
+        store.session(body.sessionId ?? '');
+        const preference = validatePresentation(body.presentation);
+        await store.saveConfig(c => ({ sessionPresentation: { ...c.sessionPresentation, [body.sessionId]: preference } }));
+        json(200, { ok: true, presentation: preference });
       } else if (req.method === 'GET' && action === '/runs') {
         const page = store.page(session ?? '', { cursor: url.searchParams.get('cursor'), limit: Number(url.searchParams.get('limit') ?? 20), includeAux: url.searchParams.get('includeAux') === 'true', query: url.searchParams.get('query') ?? '' });
         json(200, url.searchParams.get('revision') === page.revision ? { unchanged: true, revision: page.revision, total: page.total } : page);
