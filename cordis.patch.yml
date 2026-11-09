@@ -1,0 +1,3 @@
+- insert:
+    - id: claude-translate
+      name: dsh-claude-translate
