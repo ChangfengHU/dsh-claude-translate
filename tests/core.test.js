@@ -143,3 +143,15 @@ test('history survives restart without changing session ownership', async t => {
   assert.deepEqual(await reopened.list('session-second'), []);
   await assert.rejects(reopened.list('../config'));
 });
+
+test('one controlled repair can recover residual Chinese, and every attempt is metered', async () => {
+  let calls = 0; const meter = { requests: 0, cacheHits: 0, usage: [] };
+  const translator = new TextTranslator(async ({ system }) => { calls++; if (calls === 2) assert.match(system, /STRICT REPAIR/); return JSON.stringify({ translations: [{ id: '0', text: calls === 1 ? '仍有中文' : 'Keep files read-only.' }] }); });
+  assert.equal(await translator.translate('文件保持只读。', 'en', { mode: 'route', provider: 'qwen', model: 'qwen-flash' }, undefined, meter), 'Keep files read-only.');
+  assert.equal(calls, 2); assert.equal(meter.requests, 2); assert.equal(meter.repairs, 1);
+});
+test('repair is bounded and never invokes an incomplete English request', async () => {
+  let calls = 0; const translator = new TextTranslator(async () => { calls++; return 'invalid json'; });
+  await assert.rejects(translator.translate('文件保持只读。', 'en', { mode: 'route', provider: 'qwen', model: 'qwen-flash' }), { code: 'TRANSLATION_FORMAT' });
+  assert.equal(calls, 2);
+});

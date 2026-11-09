@@ -34,3 +34,12 @@ test('translation route cannot return a tool call', async () => {
   const execute = createExecutor({ credentials, makeMessage, dispatch: async function* () { yield { type: 'tool-call-delta', index: 0, name: 'Bash', argumentsDelta: '{}' }; } });
   await assert.rejects(execute({ config: { ...config, mode: 'route', provider: 'qwen' }, system: '', text: '' }), { code: 'TRANSLATION_TOOL_CALL' });
 });
+
+test('Qwen translation uses deterministic temperature; local Codex receives no unsupported sampling option', async () => {
+  let got;
+  const executor = createExecutor({ credentials: {}, makeMessage: input => input, dispatch: request => { got = request; return (async function* () { yield { type: 'block-end', index: 0, block: { type: 'text', text: '{"translations":[]}' } }; yield { type: 'finish', reason: { kind: 'stop' } }; })(); } });
+  await executor({ system: 'Translate literally.', text: 'Hello', config: { mode: 'route', provider: 'qwen', model: 'qwen-flash', timeoutMs: 1000 } });
+  assert.equal(got.temperature, 0);
+  await executor({ system: 'Translate literally.', text: 'Hello', config: { mode: 'route', provider: 'codex-local', model: 'default', timeoutMs: 1000 } });
+  assert.equal(got.temperature, undefined);
+});

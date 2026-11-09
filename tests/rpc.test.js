@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRpcHandler } from '../src/rpc.js';
-const store = { config: { enabled: false }, active: new Map(), list: async session => session === 'session-a' ? [{ id: 'tr_12', original: { model: 'default', messages: [] } }] : [] };
+const store = { config: { enabled: false, targetProviders: [] }, active: new Map(), get: async session => session === 'session-a' ? { id: 'tr_12', original: { model: 'default', messages: [] } } : undefined };
 const ports = { store, credentials: { describe: async () => ({ configured: false }) }, llm: { listProviders: () => [] }, engine: {} };
 test('native Connection RPC carries state without depending on connection.admit', async () => {
   const result = await createRpcHandler(ports)('state', {}, new AbortController().signal);

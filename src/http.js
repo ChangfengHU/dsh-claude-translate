@@ -31,14 +31,16 @@ export function createHandler({ store, engine, credentials, llm, admit }) {
       }
       if (req.method === 'GET' && action === '/state') {
         const info = await credentials.describe('DSH_CLAUDE_TRANSLATE_API_KEY');
-        json(200, { version: '0.1.4', config: store.config, credentialConfigured: info.configured ?? info.present ?? false, providers: llm.listProviders(), active: store.active.size });
+        const config = { ...store.config, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {} };
+        const providers = llm.listProviders();
+        json(200, { version: '0.2.1', config, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size,
+          environment: { claudeRoute: providers.some(p => store.config.targetProviders.includes(p.id)), codexRoute: providers.some(p => /codex/i.test(p.id)) },
+          history: { maxRuns: store.maxRuns, maxBytes: store.maxBytes } });
       } else if (req.method === 'GET' && action === '/runs') {
-        const all = await store.list(session ?? '');
-        const purpose = r => r.purpose ?? (r.original.system?.startsWith('Create a concise title') ? 'session-title' : 'conversation');
-        const runs = url.searchParams.get('includeAux') === 'true' ? all : all.filter(r => purpose(r) === 'conversation');
-        json(200, { auxiliaryCount: all.filter(r => purpose(r) !== 'conversation').length, runs: runs.map(r => ({ id: r.id, purpose: purpose(r), status: r.status, startedAt: r.startedAt, finishedAt: r.finishedAt, model: r.original.model, translation: r.translation, inputTranslationMs: r.inputTranslationMs, claudeMs: r.claudeMs, preview: r.original.messages.filter(m => m.source.kind === 'user').flatMap(m => m.content.filter(c => c.type === 'text').map(c => c.text)).at(-1)?.slice(0, 90) ?? '', error: r.error })) });
+        const page = store.page(session ?? '', { cursor: url.searchParams.get('cursor'), limit: Number(url.searchParams.get('limit') ?? 20), includeAux: url.searchParams.get('includeAux') === 'true', query: url.searchParams.get('query') ?? '' });
+        json(200, url.searchParams.get('revision') === page.revision ? { unchanged: true, revision: page.revision, total: page.total } : page);
       } else if (req.method === 'GET' && action === '/run') {
-        const run = (await store.list(session ?? '')).find(r => r.id === url.searchParams.get('id'));
+        const run = await store.get(session ?? '', url.searchParams.get('id'), { full: url.searchParams.get('full') === 'true' });
         if (!run) json(404, { error: 'Run not found for this session.' }); else json(200, { run });
       } else if (req.method === 'GET' && action === '/models') {
         const provider = url.searchParams.get('provider');
@@ -57,6 +59,7 @@ export function createHandler({ store, engine, credentials, llm, admit }) {
         if (clearApiKey === true) await credentials.unset('DSH_CLAUDE_TRANSLATE_API_KEY');
         await store.saveConfig(patch);
         engine.translator.cache.clear();
+        engine.translator.segmentCache?.clear();
         json(200, { ok: true, config: store.config });
       } else if (req.method === 'POST' && action === '/session') {
         const body = await readJson(req);
@@ -66,9 +69,12 @@ export function createHandler({ store, engine, credentials, llm, admit }) {
       } else if (req.method === 'POST' && action === '/test') {
         const body = await readJson(req);
         const text = body.text ?? '你好，请确认翻译连接正常。';
-        if (typeof text !== 'string' || text.length > 1000 || !text.trim()) throw failure('INVALID_BODY', 'Translation test text must be between 1 and 1000 characters.');
+        if (typeof text !== 'string' || text.length > 4000 || !text.trim()) throw failure('INVALID_BODY', 'Translation test text must be between 1 and 4000 characters.');
         const meter = { requests: 0, cacheHits: 0, usage: [] }; const started = Date.now();
-        const output = await engine.translator.translate(text, 'en', structuredClone(store.config), req.signal, meter);
+        const overrides = body.overrides ?? {};
+        if (typeof overrides !== 'object' || !overrides || Array.isArray(overrides) || Object.keys(overrides).some(k => !['mode', 'provider', 'model', 'baseURL'].includes(k))) throw failure('INVALID_CONFIG', 'Invalid test overrides.');
+        const config = validateConfig({ ...store.config, ...overrides });
+        const output = await engine.translator.translate(text, 'en', config, req.signal, meter);
         json(200, { ok: true, input: text, output, durationMs: Date.now() - started, meter });
       } else json(404, { error: 'Unknown translation endpoint.' });
     } catch (error) {

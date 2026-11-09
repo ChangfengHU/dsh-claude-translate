@@ -25,7 +25,7 @@ export function createExecutor({ dispatch, makeMessage, credentials, fetcher = f
       if (typeof choice?.message?.content !== 'string') throw failure('TRANSLATION_EMPTY', 'Translation provider returned no text.');
       return { text: choice.message.content, usage: data.usage ?? null };
     }
-    const request = { provider: config.provider, model: config.model, system, messages: [makeMessage({ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] })], tools: [], signal: bounded };
+    const request = { provider: config.provider, model: config.model, system, messages: [makeMessage({ role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] })], tools: [], signal: bounded, ...(/codex/i.test(config.provider) ? {} : { temperature: 0 }) };
     const blocks = new Map(); let usage = null; let complete = false;
     for await (const chunk of dispatch(request)) {
       if (chunk.type === 'text-delta') blocks.set(chunk.index, (blocks.get(chunk.index) ?? '') + chunk.text);
