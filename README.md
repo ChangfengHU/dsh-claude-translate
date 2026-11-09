@@ -77,6 +77,12 @@ silently dropping instructions.
 Invalid segment output receives at most one strict, metered repair attempt.
 If it still fails, Claude is not called. Repairs are not endless retries.
 
+Quoted UI copy and filenames are preserved as literal input data. Chinese
+punctuation terminates unquoted paths/URLs, so the instruction after a path is
+not accidentally hidden from translation. Code-only answers skip paid display
+translation. Real acceptance uses normal business requests, not messages that
+tell Claude about this plugin or supply the expected English answer.
+
 Local Codex is convenient for reusing a login, but is not automatically the lowest
 latency translator. Codex translation inherits the adapter's sandbox/approval
 policy. DSH tools are not supplied to translation requests; native CLI policy is

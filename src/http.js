@@ -33,7 +33,7 @@ export function createHandler({ store, engine, credentials, llm, admit }) {
         const info = await credentials.describe('DSH_CLAUDE_TRANSLATE_API_KEY');
         const config = { ...store.config, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {} };
         const providers = llm.listProviders();
-        json(200, { version: '0.2.1', config, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size,
+        json(200, { version: '0.2.3', config, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size,
           environment: { claudeRoute: providers.some(p => store.config.targetProviders.includes(p.id)), codexRoute: providers.some(p => /codex/i.test(p.id)) },
           history: { maxRuns: store.maxRuns, maxBytes: store.maxBytes } });
       } else if (req.method === 'GET' && action === '/runs') {

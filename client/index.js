@@ -145,7 +145,7 @@ window.__ModuleLoader__.load({
       const enabled = state ? state.config.sessions[sessionId] ?? state.config.enabled : false;
       async function toggle() { try { await api('/session', { sessionId, enabled: !enabled }); await refresh(); } catch (e) { setError(e.message); } }
       const firstItem = (cursors.length - 1) * 20;
-      return h('div', { className: 'dct', 'data-version': '0.2.1' },
+      return h('div', { className: 'dct', 'data-version': '0.2.3' },
         h('header', { className: 'dct-head' }, h('h2', null, '翻译调用'), h('span', { className: 'dct-muted dct-model', title: state?.config.model }, state?.config.model || '未配置翻译模型'),
           h('span', { className: 'dct-grow' }), h('label', { className: 'dct-toggle' }, h('input', { type: 'checkbox', checked: enabled, disabled: !state, onChange: toggle }), '本会话启用'),
           h('button', { type: 'button', className: 'dct-icon', title: '刷新调用记录', 'aria-label': '刷新调用记录', onClick: () => setRev(n => n + 1) }, '↻')),

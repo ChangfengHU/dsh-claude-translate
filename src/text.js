@@ -14,11 +14,13 @@ export function redact(text) {
 }
 
 // Preserve literal syntax and secrets before sending prose to a translation provider.
-export function protect(text) {
+export function protect(text, { quotedLiterals = false } = {}) {
   const prefix = `DSHT_${randomBytes(8).toString('hex')}_`;
   const saved = [];
-  const pattern = /```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]+`|https?:\/\/[^\s<>"')]+|(?:\/(?:home|tmp|opt|srv|Users|var|etc|workspace|workspaces)\/|[A-Za-z]:\\)[^\s<>"'`]+|-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----|\b(?:sk-[A-Za-z0-9_.@*-]{12,}|gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{16,})|\bDSHT_[A-Za-z0-9_]+_END\b/g;
-  const masked = String(text).replace(pattern, value => {
+  const pattern = /```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`[^`\n]+`|https?:\/\/[^\s<>"')，。！？；：、（）【】“”‘’《》「」『』]+|(?:\/(?:home|tmp|opt|srv|Users|var|etc|workspace|workspaces)\/|[A-Za-z]:\\)[^\s<>"'`，。！？；：、（）【】“”‘’《》「」『』]+|-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----|\b(?:sk-[A-Za-z0-9_.@*-]{12,}|gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{16,})|\bDSHT_[A-Za-z0-9_]+_END\b/g;
+  const quotes = /“[^”\n]{1,2000}”|‘[^’\n]{1,2000}’|「[^」\n]{1,2000}」|『[^』\n]{1,2000}』|《[^》\n]{1,2000}》|"(?:\\.|[^"\\\n]){1,2000}"|(?<![A-Za-z0-9_])'(?:\\.|[^'\\\n]){1,2000}'(?![A-Za-z0-9_])/gu;
+  const literals = quotedLiterals ? new RegExp(pattern.source + '|' + quotes.source, 'gu') : pattern;
+  const masked = String(text).replace(literals, value => {
     const marker = `${prefix}${saved.length}_END`;
     saved.push({ marker, value });
     return marker;
@@ -48,8 +50,9 @@ export class TextTranslator {
     if (!text.trim()) return text;
     const key = hash(JSON.stringify([config.mode, config.provider, config.model, config.baseURL, direction, text]));
     if (this.cache.has(key)) { if (meter) meter.cacheHits++; return this.cache.get(key); }
-    const shield = protect(text);
+    const shield = protect(text, { quotedLiterals: direction === 'en' });
     if (direction === 'en' && !HAN.test(shield.text)) return text;
+    if (!shield.text.replace(/\bDSHT_[A-Za-z0-9_]+_END\b/g, '').trim()) return text;
     // Bounding each source prevents hidden truncation and unbounded translation cost.
     if (shield.text.length > 30000) throw failure('TRANSLATION_TOO_LARGE', 'A prose block exceeds 30,000 characters. Split it before calling Claude Code.');
     const pieces = [...new Intl.Segmenter(direction === 'en' ? 'zh' : 'en', { granularity: 'sentence' }).segment(shield.text)].map((item, index) => ({ id: String(index), text: item.segment, translate: Boolean(item.segment.trim()) && (direction !== 'en' || HAN.test(item.segment)) }));
