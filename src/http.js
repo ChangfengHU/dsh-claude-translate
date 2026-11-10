@@ -2,6 +2,7 @@ import { failure, redact } from './text.js';
 import { validateConfig } from './store.js';
 import { validatePresentation } from './presentation.js';
 import { hash } from './text.js';
+import { initialDisplay } from './chat-display.js';
 import { claudeRoutes, selectTranslationModel, translationModels, validateSelection } from './catalog.js';
 
 export const PREFIX = '/api/claude-translate';
@@ -41,7 +42,7 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
         const targets = claudeRoutes(providers);
         const config = { ...store.config, targetProviders: targets, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {}, sessionPresentation: session && store.config.sessionPresentation[session] ? { [session]: store.config.sessionPresentation[session] } : {} };
         const qwen = providers.find(p => p.name === 'Qwen' && p.models.some(m => m.id === 'qwen-flash'));
-        json(200, { version: '0.3.3', config, recommendation: qwen ? { provider: qwen.id, model: 'qwen-flash' } : null, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size, displayJobs: engine.jobs?.size ?? 0,
+        json(200, { version: '0.3.4', config, recommendation: qwen ? { provider: qwen.id, model: 'qwen-flash' } : null, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size, displayJobs: engine.jobs?.size ?? 0,
           environment: { claudeRoute: targets.length > 0, codexRoute: providers.some(p => /codex/i.test(p.id)) },
           history: { maxRuns: store.maxRuns, maxBytes: store.maxBytes } });
       } else if (req.method === 'GET' && action === '/chat') {
@@ -51,7 +52,7 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
         const presentation = store.config.sessionPresentation[session] ?? store.config.presentation;
         const enabled = store.config.sessions[session] ?? store.config.enabled;
         const revision = hash(JSON.stringify([runs, presentation, enabled]));
-        json(200, revision === url.searchParams.get('revision') ? { unchanged: true, revision } : { revision, runs, presentation, enabled });
+        json(200, revision === url.searchParams.get('revision') ? { unchanged: true, revision } : { revision, runs, presentation, enabled, display: enabled && presentation.mode !== 'en' ? initialDisplay(store, session, runs) : [] });
       } else if (req.method === 'GET' && action === '/display') {
         const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean);
         json(200, { runs: store.displayRuns(session ?? '', ids) });

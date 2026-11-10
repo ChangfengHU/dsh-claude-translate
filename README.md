@@ -1,5 +1,9 @@
 # DSH Claude Translate
 
+### 0.3.4: First-Paint Cache
+
+Changed Chat metadata can include up to eight recent cached display bodies within 64 KiB. The client consumes these immediately, without a second request or another model call. Older and larger responses retain bounded lazy loading. Session isolation, revision checks and retention remain unchanged.
+
 ## Source Selection
 
 The Translation workspace uses a full-width configuration/test split. Accepted

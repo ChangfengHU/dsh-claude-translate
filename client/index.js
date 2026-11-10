@@ -328,6 +328,7 @@ window.__ModuleLoader__.load({
             const epoch = configEpoch;
             const result = await api('/chat?session=' + encodeURIComponent(sessionId) + '&revision=' + revision, undefined, abort.signal);
             if (!result.unchanged) {
+              for (const run of result.display ?? []) details.set(run.id, run);
               const staleConfig = pendingConfig > 0 || epoch !== configEpoch;
               revision = staleConfig ? '' : result.revision;
               emit({ ...result, ...(staleConfig ? { enabled: snapshot.enabled, presentation: snapshot.presentation } : {}), loaded: true, error: '' }); trim();
