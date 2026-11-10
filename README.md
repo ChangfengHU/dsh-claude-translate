@@ -2,6 +2,12 @@
 
 ## Source Selection
 
+The Translation workspace uses a full-width configuration/test split. Accepted
+composer messages return to Chat; draft edits and translation connection tests do
+not navigate. User messages can expand their captured English input, correlated
+by durable message identity and event sequence rather than matching equal text.
+English input is read from the actual forwarded request and survives trace reload.
+
 Qwen Flash is the preferred initial model when a configured Qwen source exposes
 it. DeepSeek and locally authenticated Codex remain selectable alternatives.
 Existing explicit choices are preserved; the plugin never includes an API key.

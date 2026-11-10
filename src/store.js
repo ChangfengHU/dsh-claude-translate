@@ -2,7 +2,7 @@ import { mkdir, readdir, readFile, writeFile, rename, rm, stat } from 'node:fs/p
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { failure, redact, hash } from './text.js';
-import { DEFAULT_PRESENTATION, validatePresentation } from './presentation.js';
+import { DEFAULT_PRESENTATION, validatePresentation, lastUserText } from './presentation.js';
 
 export const DEFAULT_CONFIG = Object.freeze({ enabled: false, mode: 'route', provider: '', model: 'qwen-flash', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', targetProviders: ['claude-local'], translateOutput: true, timeoutMs: 45000, retentionDays: 7, sessions: {}, presentation: DEFAULT_PRESENTATION, sessionPresentation: {} });
 export function validateConfig(value) {
@@ -27,10 +27,10 @@ export function validateConfig(value) {
 
 
 export function runSummary(r) {
-  const user = request => request?.messages?.filter(m => m.source?.kind === 'user').flatMap(m => m.content?.filter(b => b.type === 'text').map(b => b.text) ?? []).at(-1) ?? '';
+  const user = lastUserText;
   return { id: r.id, sessionId: r.sessionId, purpose: r.purpose ?? (r.original?.system?.startsWith('Create a concise title') ? 'session-title' : 'conversation'),
     status: r.status, startedAt: r.startedAt, finishedAt: r.finishedAt, model: r.original?.model, position: r.position, displayStatus: r.displayStatus,
-    translation: r.translation, inputTranslationMs: r.inputTranslationMs, claudeMs: r.claudeMs, outputTranslationMs: r.outputTranslationMs,
+    inputIdentity: r.inputIdentity, forwardedAt: r.forwardedAt, translation: r.translation, inputTranslationMs: r.inputTranslationMs, claudeMs: r.claudeMs, outputTranslationMs: r.outputTranslationMs,
     preview: user(r.original).slice(0, 140), input: user(r.original), forwardedInput: user(r.forwarded),
     error: r.error, revision: [r.status, r.updatedAt ?? 0, r.rawOutput?.length ?? 0, r.translatedOutput?.length ?? 0].join(':') };
 }
@@ -80,13 +80,13 @@ export class Store {
   }
   session(id) { if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) throw failure('INVALID_SESSION', 'Invalid session identifier.'); }
   putDisplay(run, summary = runSummary(run)) {
-    this.display.set(run.id, { id: run.id, sessionId: run.sessionId, purpose: summary.purpose, position: run.position, startedAt: run.startedAt, status: run.status, displayStatus: run.displayStatus ?? (run.translatedOutput ? 'ready' : run.status === 'translating-output' ? 'interrupted' : 'unavailable'), rawOutput: run.rawOutput ?? '', translatedOutput: run.translatedOutput ?? '', outputTranslationError: run.outputTranslationError, revision: summary.revision });
+    this.display.set(run.id, { id: run.id, sessionId: run.sessionId, purpose: summary.purpose, position: run.position, inputIdentity: run.inputIdentity, forwardedAt: run.forwardedAt, forwardedInput: run.forwardedInput ?? summary.forwardedInput ?? '', startedAt: run.startedAt, status: run.status, displayStatus: run.displayStatus ?? (run.translatedOutput ? 'ready' : run.status === 'translating-output' ? 'interrupted' : 'unavailable'), rawOutput: run.rawOutput ?? '', translatedOutput: run.translatedOutput ?? '', outputTranslationError: run.outputTranslationError, revision: summary.revision });
   }
   displayPage(session) {
     this.session(session);
     const records = new Map((this.sessions.get(session) ?? []).map(id => [id, this.display.get(id)]));
     for (const run of this.active.values()) if (run.sessionId === session) records.set(run.id, { ...run, displayStatus: run.displayStatus ?? 'pending', revision: runSummary(run).revision });
-    return [...records.values()].filter(r => r && r.purpose === 'conversation').map(({ id, position, status, displayStatus, revision, startedAt }) => ({ id, position, status, displayStatus, revision, startedAt }));
+    return [...records.values()].filter(r => r && r.purpose === 'conversation').map(({ id, purpose, position, inputIdentity, forwardedAt, status, displayStatus, revision, startedAt }) => ({ id, purpose, position, inputIdentity, forwardedAt, status, displayStatus, revision, startedAt }));
   }
   displayRuns(session, ids) {
     this.session(session);
@@ -94,7 +94,7 @@ export class Store {
     return ids.flatMap(id => {
       const r = this.active.get(id) ?? this.display.get(id);
       if (!r || r.sessionId !== session || (r.purpose ?? 'conversation') !== 'conversation') return [];
-      return [{ id, position: r.position, status: r.status, displayStatus: r.displayStatus ?? (r.translatedOutput ? 'ready' : 'unavailable'), rawOutput: r.rawOutput, translatedOutput: r.translatedOutput, outputTranslationError: r.outputTranslationError, revision: r.revision ?? runSummary(r).revision }];
+      return [{ id, position: r.position, inputIdentity: r.inputIdentity, forwardedAt: r.forwardedAt, forwardedInput: r.forwardedInput ?? '', status: r.status, displayStatus: r.displayStatus ?? (r.translatedOutput ? 'ready' : 'unavailable'), rawOutput: r.rawOutput, translatedOutput: r.translatedOutput, outputTranslationError: r.outputTranslationError, revision: r.revision ?? runSummary(r).revision }];
     });
   }
   putIndex(id, value) {

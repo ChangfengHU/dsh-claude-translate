@@ -1,15 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { TextTranslator, translateRequest, snapshotRequest, hash, failure, redact, PIPELINE, ENGLISH_POLICY } from './text.js';
 import { claudeRoutes, validateSelection } from './catalog.js';
+import { lastUserText } from './presentation.js';
 
 export class TranslationEngine {
-  constructor({ store, execute, makeMessage, dispatch, catalog, position = () => undefined }) {
+  constructor({ store, execute, makeMessage, dispatch, catalog, position = () => undefined, inputIdentity = () => undefined }) {
     this.store = store;
     this.translator = new TextTranslator(execute);
     this.makeMessage = makeMessage;
     this.dispatch = dispatch;
     this.nested = new WeakSet();
     this.position = position;
+    this.inputIdentity = inputIdentity;
     this.catalog = catalog;
     this.jobs = new Map();
     this.closed = false;
@@ -66,7 +68,7 @@ export class TranslationEngine {
     await this.seed(options.sessionId, config);
     const run = {
       version: 1, purpose: options.purpose ?? 'conversation', id: `tr_${randomUUID()}`, sessionId: options.sessionId ?? '_unscoped', startedAt: Date.now(), status: 'translating',
-      original: snapshotRequest(options), rawOutput: '', translatedOutput: '',
+      original: snapshotRequest(options), inputIdentity: this.inputIdentity(options), rawOutput: '', translatedOutput: '',
       position: options.purpose ? undefined : this.position(options.sessionId), pipeline: PIPELINE, configFingerprint: hash(JSON.stringify([PIPELINE, config.mode, config.provider, config.model, config.baseURL])), displayStatus: 'pending',
       translation: { mode: config.mode, provider: config.mode === 'api' ? new URL(config.baseURL).host : config.provider, model: config.model },
       meter: { requests: 0, cacheHits: 0, usage: [] },
@@ -80,6 +82,7 @@ export class TranslationEngine {
       const prepared = await translateRequest(options, this.translator, config, this.makeMessage, run.meter);
       options.signal?.throwIfAborted();
       run.forwarded = snapshotRequest(prepared.request);
+      run.forwardedInput = lastUserText(run.forwarded);
       run.forwardedSnapshotSha256 = hash(JSON.stringify(run.forwarded));
       run.messageMapping = prepared.mapping;
       run.translatedBlocks = prepared.translatedBlocks;

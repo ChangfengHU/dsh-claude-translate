@@ -1,6 +1,18 @@
 import { failure } from './text.js';
 
 export const DEFAULT_PRESENTATION = Object.freeze({ mode: 'zh', layout: 'parallel' });
+
+export function lastUserText(request) {
+  const message = request?.messages?.filter(m => m.source?.kind === 'user').at(-1);
+  return message?.content?.filter(b => b.type === 'text').map(b => b.text).join('\n\n') ?? '';
+}
+
+export function userInputIdentity(request, events = []) {
+  const message = request?.messages?.filter(m => m.source?.kind === 'user').at(-1);
+  if (!message?.id) return undefined;
+  const event = events.find(e => e.type === 'user/message' && e.data?.source?.kind === 'user' && e.data.id === message.id);
+  return event && Number.isSafeInteger(event.seq) ? { messageId: message.id, seq: event.seq } : undefined;
+}
 export function validatePresentation(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(k => !['mode', 'layout'].includes(k)) || !['zh', 'en', 'bilingual'].includes(value.mode) || !['parallel', 'stacked', 'collapsed'].includes(value.layout)) throw failure('INVALID_CONFIG', 'Invalid reply presentation.');
   return { mode: value.mode, layout: value.layout };

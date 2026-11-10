@@ -6,7 +6,7 @@ import { TranslationEngine } from './engine.js';
 import { createExecutor } from './provider.js';
 import { createRpcHandler, CHANNEL } from './rpc.js';
 import { StreamBypass } from './bypass.js';
-import { currentPosition, legacyPosition } from './presentation.js';
+import { currentPosition, legacyPosition, userInputIdentity, lastUserText } from './presentation.js';
 
 export const name = 'dsh-claude-translate';
 export const inject = ['llm', 'credentials', 'connection', 'sessions'];
@@ -27,18 +27,26 @@ export async function apply(ctx) {
   };
   const llm = { listProviders: () => ctx.llm.listProviders(), listModels: provider => ctx.llm.listModels(provider) };
   const execute = createExecutor({ dispatch, makeMessage: createMessage, credentials });
-  const engine = new TranslationEngine({ store, execute, makeMessage: createMessage, dispatch, catalog: llm, position: id => currentPosition(ctx.sessions.get(id)?.events) });
+  const engine = new TranslationEngine({ store, execute, makeMessage: createMessage, dispatch, catalog: llm, position: id => currentPosition(ctx.sessions.get(id)?.events), inputIdentity: request => userInputIdentity(request, ctx.sessions.get(request.sessionId)?.events) });
   ctx.on('dispose', () => engine.dispose());
   const attempted = new Set();
   const reconcile = async session => {
     const events = ctx.sessions.get(session)?.events;
     if (!events) return;
     for (const id of attempted) if (!store.index.has(id)) attempted.delete(id);
-    for (const meta of store.displayPage(session)) if (!meta.position && !store.active.has(meta.id) && !attempted.has(meta.id)) {
+    let examined = 0;
+    for (const meta of store.displayPage(session)) if ((!meta.position || !meta.inputIdentity) && !store.active.has(meta.id) && !attempted.has(meta.id)) {
+      if (examined++ >= 4) break;
       attempted.add(meta.id);
       const run = await store.get(session, meta.id);
-      const position = run && legacyPosition(run, events);
-      if (position) { run.position = position; await store.save(run); }
+      if (!run) continue;
+      const position = !run.position && legacyPosition(run, events);
+      const identity = !run.inputIdentity && userInputIdentity(run.original, events);
+      if (position || identity) {
+        if (position) run.position = position;
+        if (identity) { run.inputIdentity = identity; run.forwardedInput = lastUserText(run.forwarded); }
+        await store.save(run);
+      }
     }
   };
   ctx.on('llm/stream', (options, next) => bypass.active ? next() : engine.stream(options, next));
