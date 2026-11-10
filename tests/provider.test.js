@@ -17,6 +17,18 @@ test('missing translation credentials fail before network I/O', async () => {
   const execute = createExecutor({ credentials: { resolve: async () => undefined }, makeMessage, fetcher: () => { throw Error('must not fetch'); } });
   await assert.rejects(execute({ config, system: '', text: '' }), { code: 'MISSING_CREDENTIAL' });
 });
+test('native model rejection remains specific without exposing the raw provider message', async () => {
+  const execute = createExecutor({ credentials, makeMessage, dispatch: async function* () {
+    yield { type: 'finish', reason: { kind: 'error', failure: { code: 'CODEX_PROCESS', message: 'private-api-value: model_not_found: model is not supported' } } };
+  } });
+  await assert.rejects(execute({ config: { ...config, mode: 'route', provider: 'codex-local' }, system: '', text: '' }), error => error.code === 'TRANSLATION_MODEL_UNAVAILABLE' && !error.message.includes('private-api-value'));
+});
+test('API authentication and balance failures are not collapsed into an unknown failure', async () => {
+  for (const [status, code] of [[401, 'TRANSLATION_AUTH'], [402, 'TRANSLATION_QUOTA'], [429, 'TRANSLATION_RATE_LIMIT']]) {
+    const execute = createExecutor({ credentials, makeMessage, fetcher: async () => new Response('', { status }) });
+    await assert.rejects(execute({ config, system: '', text: '' }), { code });
+  }
+});
 test('truncated API translations are rejected', async () => {
   const execute = createExecutor({ credentials, makeMessage, fetcher: async () => new Response(JSON.stringify({ choices: [{ finish_reason: 'length', message: { content: 'part' } }] })) });
   await assert.rejects(execute({ config, system: '', text: '' }), { code: 'TRANSLATION_INCOMPLETE' });

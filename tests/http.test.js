@@ -71,8 +71,38 @@ test('Chat metadata, display batches and preferences stay session scoped', async
   assert.equal((await post('/presentation', { sessionId: 'session-a', presentation: { mode: 'en', layout: 'stacked' } }, 'https://attacker.example')).status, 403);
 });
 test('translation connection test never calls Claude', async t => {
-  const { post } = await fixture(t);
+  const { post, store } = await fixture(t);
+  await store.saveConfig({ provider: 'qwen', model: 'qwen-turbo' });
   const response = await post('/test', {}); assert.equal(response.status, 200); assert.equal((await response.json()).output, 'Hello, connection verified.');
+});
+
+test('a mismatched model is rejected before changing credentials or saved config', async t => {
+  const { post, base, store } = await fixture(t);
+  const before = structuredClone(store.config);
+  const response = await post('/config', { provider: 'qwen', model: 'another-source-model', apiKey: 'private-test-key' });
+  assert.equal(response.status, 400); assert.equal((await response.json()).code, 'TRANSLATION_MODEL_MISMATCH');
+  assert.deepEqual(store.config, before);
+  assert.equal((await (await fetch(base + '/api/claude-translate/state')).json()).credentialConfigured, false);
+});
+
+test('model loading chooses a valid source model, never a previous source value', async t => {
+  const { base } = await fixture(t);
+  const result = await (await fetch(base + '/api/claude-translate/models?provider=qwen&current=gpt-other')).json();
+  assert.equal(result.provider, 'qwen'); assert.equal(result.selectedModel, 'qwen-turbo');
+  assert.equal((await fetch(base + '/api/claude-translate/models?provider=missing')).status, 400);
+});
+
+test('draft translation testing does not overwrite the saved source', async t => {
+  const { post, store } = await fixture(t);
+  const before = structuredClone(store.config);
+  const response = await post('/test', { text: '明天出门带什么？', overrides: { mode: 'route', provider: 'qwen', model: 'qwen-turbo' } });
+  assert.equal(response.status, 200); assert.deepEqual(store.config, before);
+  assert.equal((await post('/test', { overrides: { provider: 'qwen', model: 'wrong' } })).status, 400);
+});
+
+test('Claude targets are runtime-owned and not editable configuration', async t => {
+  const { post } = await fixture(t);
+  assert.equal((await post('/config', { targetProviders: ['qwen'] })).status, 400);
 });
 test('async-local bypass survives cloned options and iterator cleanup', async () => {
   const bypass = new StreamBypass(); let cleaned = false; let calls = 0;

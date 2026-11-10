@@ -1,5 +1,13 @@
 import { failure } from './text.js';
 
+function providerFailure(status, message = '', code = '') {
+  if (status === 401 || status === 403) return failure('TRANSLATION_AUTH', 'The translation source rejected authentication. Check its sign-in or API key.');
+  if (status === 402 || /quota|insufficient.balance/i.test(message + code)) return failure('TRANSLATION_QUOTA', 'The translation source has insufficient balance or quota.');
+  if (status === 429) return failure('TRANSLATION_RATE_LIMIT', 'The translation source is rate-limited. Try again shortly.');
+  if (/model_not_found|model[^\n]{0,120}(?:not supported|not available|does not exist)/i.test(message + code)) return failure('TRANSLATION_MODEL_UNAVAILABLE', 'This model is not available to the signed-in account. Choose another model or source.');
+  return failure('TRANSLATION_PROVIDER_ERROR', 'The translation source failed. Check its model, network and service status.');
+}
+
 export function translationSignal(signal, timeoutMs) {
   return signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
 }
@@ -16,7 +24,7 @@ export function createExecutor({ dispatch, makeMessage, credentials, fetcher = f
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
         body: JSON.stringify({ model: config.model, stream: false, temperature: 0, messages: [{ role: 'system', content: system }, { role: 'user', content: text }] }),
       });
-      if (!response.ok) throw failure('TRANSLATION_HTTP_ERROR', `Translation provider returned HTTP ${response.status}.`);
+      if (!response.ok) throw providerFailure(response.status);
       const body = await response.text();
       if (body.length > 2 * 1024 * 1024) throw failure('TRANSLATION_TOO_LARGE', 'Translation response exceeds 2 MiB.');
       const data = JSON.parse(body);
@@ -33,6 +41,7 @@ export function createExecutor({ dispatch, makeMessage, credentials, fetcher = f
       if (chunk.type === 'usage') usage = chunk.usage;
       if (chunk.type === 'tool-call-delta' || (chunk.type === 'block-end' && chunk.block.type === 'tool-call')) throw failure('TRANSLATION_TOOL_CALL', 'A translation model requested tools instead of returning a translation.');
       if (chunk.type === 'finish') {
+        if (chunk.reason.kind === 'error') throw providerFailure(chunk.reason.failure?.status, chunk.reason.failure?.message, chunk.reason.failure?.code);
         if (chunk.reason.kind !== 'stop') throw failure('TRANSLATION_INCOMPLETE', 'The translation model did not complete normally.');
         complete = true;
       }

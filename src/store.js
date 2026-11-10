@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { failure, redact, hash } from './text.js';
 import { DEFAULT_PRESENTATION, validatePresentation } from './presentation.js';
 
-export const DEFAULT_CONFIG = Object.freeze({ enabled: false, mode: 'route', provider: '', model: '', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', targetProviders: ['claude-local'], translateOutput: true, timeoutMs: 45000, retentionDays: 7, sessions: {}, presentation: DEFAULT_PRESENTATION, sessionPresentation: {} });
+export const DEFAULT_CONFIG = Object.freeze({ enabled: false, mode: 'route', provider: '', model: 'qwen-flash', baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1', targetProviders: ['claude-local'], translateOutput: true, timeoutMs: 45000, retentionDays: 7, sessions: {}, presentation: DEFAULT_PRESENTATION, sessionPresentation: {} });
 export function validateConfig(value) {
   const c = { ...DEFAULT_CONFIG, ...value };
   const allowed = Object.keys(DEFAULT_CONFIG);

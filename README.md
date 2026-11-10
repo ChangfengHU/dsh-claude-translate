@@ -1,5 +1,21 @@
 # DSH Claude Translate
 
+## Source Selection
+
+Qwen Flash is the preferred initial model when a configured Qwen source exposes
+it. DeepSeek and locally authenticated Codex remain selectable alternatives.
+Existing explicit choices are preserved; the plugin never includes an API key.
+
+The English-language Translation settings load models automatically when the
+source changes. The server rejects provider/model mismatches before invoking
+Claude or changing credentials. A draft can be tested in place without replacing
+the saved source. Catalog presence is not a guarantee of account entitlement.
+
+Claude Code targets are detected from registered native adapters, not entered as
+route IDs by the user. Chat shows one compact Translation control; language and
+bilingual layout preferences live in its popover. Recent-100 retention and native
+English conversation history are unchanged.
+
 [中文说明](README.zh-CN.md)
 
 **中文输入，英文与 Claude Code 交流，中文阅读回复。**

@@ -1,14 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { TextTranslator, translateRequest, snapshotRequest, hash, failure, redact, PIPELINE, ENGLISH_POLICY } from './text.js';
+import { claudeRoutes, validateSelection } from './catalog.js';
 
 export class TranslationEngine {
-  constructor({ store, execute, makeMessage, dispatch, position = () => undefined }) {
+  constructor({ store, execute, makeMessage, dispatch, catalog, position = () => undefined }) {
     this.store = store;
     this.translator = new TextTranslator(execute);
     this.makeMessage = makeMessage;
     this.dispatch = dispatch;
     this.nested = new WeakSet();
     this.position = position;
+    this.catalog = catalog;
     this.jobs = new Map();
     this.closed = false;
   }
@@ -51,13 +53,15 @@ export class TranslationEngine {
   }
   enabled(options) {
     const c = this.store.config;
-    return !this.nested.has(options) && c.targetProviders.includes(options.provider) && (c.sessions[options.sessionId] ?? c.enabled);
+    const targets = this.catalog ? claudeRoutes(this.catalog.listProviders()) : c.targetProviders;
+    return !this.nested.has(options) && targets.includes(options.provider) && (c.sessions[options.sessionId] ?? c.enabled);
   }
   async *stream(options, next) {
     if (!this.enabled(options)) { yield* next(); return; }
     if (this.closed) throw failure('TRANSLATION_STOPPED', 'The translation service is stopping.');
     const config = structuredClone(this.store.config);
     if (!config.model || (config.mode === 'route' && !config.provider)) throw failure('TRANSLATION_NOT_CONFIGURED', 'Configure a translation model before calling Claude Code.');
+    if (this.catalog) await validateSelection(this.catalog, config);
     if (this.store.active.size >= 8) throw failure('TRANSLATION_BUSY', 'Translation concurrency limit reached. Try again shortly.');
     await this.seed(options.sessionId, config);
     const run = {

@@ -2,6 +2,7 @@ import { failure, redact } from './text.js';
 import { validateConfig } from './store.js';
 import { validatePresentation } from './presentation.js';
 import { hash } from './text.js';
+import { claudeRoutes, selectTranslationModel, translationModels, validateSelection } from './catalog.js';
 
 export const PREFIX = '/api/claude-translate';
 export async function readJson(req, maxBytes = 20000) {
@@ -33,10 +34,15 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
       }
       if (req.method === 'GET' && action === '/state') {
         const info = await credentials.describe('DSH_CLAUDE_TRANSLATE_API_KEY');
-        const config = { ...store.config, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {}, sessionPresentation: session && store.config.sessionPresentation[session] ? { [session]: store.config.sessionPresentation[session] } : {} };
-        const providers = llm.listProviders();
-        json(200, { version: '0.3.1', config, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size, displayJobs: engine.jobs?.size ?? 0,
-          environment: { claudeRoute: providers.some(p => store.config.targetProviders.includes(p.id)), codexRoute: providers.some(p => /codex/i.test(p.id)) },
+        const providers = await Promise.all(llm.listProviders().map(async p => {
+          const models = await llm.listModels?.(p.id).catch(() => []) ?? [];
+          return { ...p, models: models.map(m => ({ id: m.id, name: m.name })), name: models.length && models.every(m => /^qwen(?:[-_.]|$)/i.test(m.id)) ? 'Qwen' : p.id === 'codex-local' ? 'Codex' : p.name };
+        }));
+        const targets = claudeRoutes(providers);
+        const config = { ...store.config, targetProviders: targets, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {}, sessionPresentation: session && store.config.sessionPresentation[session] ? { [session]: store.config.sessionPresentation[session] } : {} };
+        const qwen = providers.find(p => p.name === 'Qwen' && p.models.some(m => m.id === 'qwen-flash'));
+        json(200, { version: '0.3.2', config, recommendation: qwen ? { provider: qwen.id, model: 'qwen-flash' } : null, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size, displayJobs: engine.jobs?.size ?? 0,
+          environment: { claudeRoute: targets.length > 0, codexRoute: providers.some(p => /codex/i.test(p.id)) },
           history: { maxRuns: store.maxRuns, maxBytes: store.maxBytes } });
       } else if (req.method === 'GET' && action === '/chat') {
         store.session(session ?? '');
@@ -63,12 +69,14 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
         if (!run) json(404, { error: 'Run not found for this session.' }); else json(200, { run });
       } else if (req.method === 'GET' && action === '/models') {
         const provider = url.searchParams.get('provider');
-        if (!provider || store.config.targetProviders.includes(provider) || /claude/i.test(provider)) throw failure('INVALID_CONFIG', 'Choose a non-Claude translation provider.');
-        json(200, { models: await llm.listModels(provider) });
+        const models = await translationModels(llm, provider);
+        json(200, { provider, models, selectedModel: selectTranslationModel(models, url.searchParams.get('current') ?? '') });
       } else if (req.method === 'POST' && action === '/config') {
         const body = await readJson(req);
         const { apiKey, clearApiKey, ...patch } = body;
-        validateConfig({ ...store.config, ...patch });
+        if (Object.hasOwn(patch, 'targetProviders')) throw failure('INVALID_CONFIG', 'Claude Code targets are discovered automatically and cannot be edited here.');
+        const next = validateConfig({ ...store.config, ...patch });
+        await validateSelection(llm, next);
         if (clearApiKey !== undefined && typeof clearApiKey !== 'boolean') throw failure('INVALID_CONFIG', 'Invalid credential clearing flag.');
         if (apiKey !== undefined && clearApiKey) throw failure('INVALID_CONFIG', 'Cannot set and clear a credential together.');
         if (apiKey !== undefined) {
@@ -87,18 +95,21 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
         json(200, { ok: true });
       } else if (req.method === 'POST' && action === '/test') {
         const body = await readJson(req);
-        const text = body.text ?? '你好，请确认翻译连接正常。';
+        const text = body.text ?? '帮我列出明天出门前需要检查的三件事。';
         if (typeof text !== 'string' || text.length > 4000 || !text.trim()) throw failure('INVALID_BODY', 'Translation test text must be between 1 and 4000 characters.');
         const meter = { requests: 0, cacheHits: 0, usage: [] }; const started = Date.now();
         const overrides = body.overrides ?? {};
         if (typeof overrides !== 'object' || !overrides || Array.isArray(overrides) || Object.keys(overrides).some(k => !['mode', 'provider', 'model', 'baseURL'].includes(k))) throw failure('INVALID_CONFIG', 'Invalid test overrides.');
         const config = validateConfig({ ...store.config, ...overrides });
+        await validateSelection(llm, config);
         const output = await engine.translator.translate(text, 'en', config, req.signal, meter);
         json(200, { ok: true, input: text, output, durationMs: Date.now() - started, meter });
       } else json(404, { error: 'Unknown translation endpoint.' });
     } catch (error) {
       console.warn('[dsh-claude-translate]', redact(error.stack ?? String(error)));
-      json(error.code === 'INVALID_CONFIG' || error.code === 'INVALID_BODY' || error.code === 'INVALID_SESSION' ? 400 : 503, { code: error.code ?? 'TRANSLATION_ERROR', error: error.code?.startsWith('INVALID') ? error.message : 'Translation operation failed. Check the selected provider, model and credentials.' });
+      const invalid = ['INVALID_CONFIG', 'INVALID_BODY', 'INVALID_SESSION', 'TRANSLATION_MODEL_MISMATCH', 'TRANSLATION_CATALOG_EMPTY', 'TRANSLATION_RECURSION'].includes(error.code);
+      const safe = invalid || ['TRANSLATION_AUTH', 'TRANSLATION_QUOTA', 'TRANSLATION_RATE_LIMIT', 'TRANSLATION_MODEL_UNAVAILABLE', 'TRANSLATION_PROVIDER_ERROR'].includes(error.code);
+      json(invalid ? 400 : 503, { code: error.code ?? 'TRANSLATION_ERROR', error: safe ? error.message : 'Translation operation failed. Check the selected provider, model and credentials.' });
     }
   };
 }

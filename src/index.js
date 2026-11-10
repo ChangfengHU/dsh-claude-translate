@@ -27,7 +27,7 @@ export async function apply(ctx) {
   };
   const llm = { listProviders: () => ctx.llm.listProviders(), listModels: provider => ctx.llm.listModels(provider) };
   const execute = createExecutor({ dispatch, makeMessage: createMessage, credentials });
-  const engine = new TranslationEngine({ store, execute, makeMessage: createMessage, dispatch, position: id => currentPosition(ctx.sessions.get(id)?.events) });
+  const engine = new TranslationEngine({ store, execute, makeMessage: createMessage, dispatch, catalog: llm, position: id => currentPosition(ctx.sessions.get(id)?.events) });
   ctx.on('dispose', () => engine.dispose());
   const attempted = new Set();
   const reconcile = async session => {
