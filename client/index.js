@@ -197,7 +197,7 @@ window.__ModuleLoader__.load({
       const enabled = state ? state.config.sessions[sessionId] ?? state.config.enabled : false;
       async function toggle() { try { await api('/session', { sessionId, enabled: !enabled }); await refresh(); } catch (e) { setError(e.message); } }
       const firstItem = (cursors.length - 1) * 20;
-      return h('div', { className: 'dct', 'data-version': '0.3.3' },
+      return h('div', { className: 'dct', 'data-version': '0.3.5' },
         h('header', { className: 'dct-head' }, h('h2', null, 'Translation runs'), h('span', { className: 'dct-muted dct-model', title: state?.config.model }, state?.config.model || 'No translation model'),
           h('span', { className: 'dct-grow' }), h('label', { className: 'dct-toggle' }, h('input', { type: 'checkbox', checked: enabled, disabled: !state, onChange: toggle }), 'Enabled for this session'),
           h('button', { type: 'button', className: 'dct-icon', title: 'Refresh runs', 'aria-label': 'Refresh runs', onClick: () => setRev(n => n + 1) }, '↻')),
@@ -232,6 +232,9 @@ window.__ModuleLoader__.load({
 @container(max-width:480px){.dct-settings .dct-form{grid-template-columns:minmax(0,1fr);gap:7px}.dct-settings .dct-form>label:not(.dct-toggle){margin-top:8px}}
 @container(max-width:840px){.dct-settings{grid-template-columns:minmax(0,1fr);gap:22px}.dct-settings .dct-test{border-left:0;border-top:1px solid var(--dsw-alias-border-l2,#e5e8ed);padding:16px 0 0}}
 .dct-reply{min-width:0;width:100%;letter-spacing:0;container-type:inline-size}.dct-reply-head{display:flex;gap:10px;align-items:center;margin:4px 0 9px;font-size:11px;line-height:22px;color:var(--dsw-alias-label-secondary,#828a98)}.dct-reply-head button{border:0;background:transparent;color:inherit;font:inherit;padding:0 3px;cursor:pointer}.dct-reply-head button:hover{color:#4965c5}.dct-reply-grid{display:grid;gap:20px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dct-reply[data-layout=stacked] .dct-reply-grid{grid-template-columns:minmax(0,1fr);gap:16px}.dct-language{font-size:11px;font-weight:550;color:var(--dsw-alias-label-secondary,#828a98);padding-bottom:7px;margin-bottom:10px;border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ed)}.dct-language[data-lang=zh]{border-color:#83b8a3;color:#3d8068}.dct-language[data-lang=en]{border-color:#a0b2d5;color:#617cae}.dct-reply-pane{min-width:0;overflow-wrap:anywhere}.dct-reply details{border-top:1px solid var(--dsw-alias-border-l2,#e4e7ed);margin-top:14px;padding-top:8px}.dct-reply summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary,#7b8491);padding:4px 0}.dct-pending{color:var(--dsw-alias-label-secondary,#7b8491);font-size:13px;padding:8px 0}.dct-reply-error{border-left:2px solid #b87967;padding:5px 10px;margin:6px 0 10px;font-size:12px;color:#a26453}
+.dct-pipeline{list-style:none;margin:8px 0 16px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:760px;font-size:10px;line-height:1.4;letter-spacing:0}.dct-pipeline li{display:flex;gap:7px;align-items:center;min-width:0;padding:7px 0;border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ed);color:var(--dsw-alias-label-secondary,#828a98)}.dct-pipeline li[data-state=active]{border-color:#7a99d5;color:#4b6eaf}.dct-pipeline li[data-state=done],.dct-pipeline li[data-state=sent]{border-color:#8bb7a4;color:#467c68}.dct-pipeline li[data-state=failed]{border-color:#c38b83;color:#a1665f}.dct-pipeline-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;opacity:.75}.dct-pipeline-label{min-width:0;display:grid;gap:2px}.dct-pipeline-label strong{font-size:11px;font-weight:550;color:var(--dsw-alias-label-primary,#38414b)}.dct-pipeline-label>span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dct-pipeline time{margin-left:auto;flex:none;min-width:4.5ch;text-align:right;font-variant-numeric:tabular-nums}.dct-draft-label{font-size:10px;color:#447d6a;margin:6px 0}.dct-reply-head .dct-icon{font-size:15px;margin-left:auto;line-height:24px;min-width:28px}.dct-input-body pre{transition:opacity .12s ease}
+@media(prefers-reduced-motion:no-preference){.dct-pipeline li[data-state=active] .dct-pipeline-dot{animation:dct-pulse 1.5s ease-in-out infinite}}
+@media(max-width:560px){.dct-pipeline{gap:9px}.dct-pipeline li{align-items:flex-start}.dct-pipeline time{font-size:9px;min-width:0}.dct-pipeline-label>span{font-size:9px}.dct-reply[data-live=true] .dct-reply-grid{grid-template-columns:minmax(0,1fr)}}
 @container(max-width:560px){.dct-reply-grid{grid-template-columns:minmax(0,1fr);gap:16px}}
 `;
     function indexUserInputs(runs) {
@@ -273,7 +276,7 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         const next = navigationAfterSend(previous.current, sessionId, input, session.promptError);
         previous.current = next.state;
-        if (next.showChat && !session.removed) actions.setView('chat');
+        if (next.showChat && !session.removed) { actions.setView('chat'); channel(sessionId).refresh(); }
       }, [sessionId, input, session.promptError, session.removed, actions]);
       return null;
     }
@@ -292,7 +295,9 @@ window.__ModuleLoader__.load({
           h('summary', null, forwarded ? 'English sent to Claude' : stopped ? 'English input · Not sent' : 'English input · Translating'),
           open ? h('div', { className: 'dct-input-body' },
             forwarded && run?.forwardedInput ? h(React.Fragment, null, h('div', { className: 'dct-input-meta' }, h('span', null, 'Forwarded English'), h(Copy, { text: run.forwardedInput })), h('pre', { lang: 'en' }, run.forwardedInput)) :
-              h('div', { className: 'dct-muted', role: 'status' }, stopped ? 'Input translation failed. Claude was not called.' : forwarded ? 'Loading captured English…' : 'Translating input…')) : null));
+              !forwarded && run?.inputPreview ? h(React.Fragment, null, h('div', { className: 'dct-input-meta' }, 'English preview · Not sent'), h('pre', { lang: 'en' }, run.inputPreview)) :
+                h('div', { className: 'dct-muted', role: 'status' }, stopped ? 'Input translation failed. Claude was not called.' : forwarded ? 'Loading captured English…' : 'Translating input…')) : null),
+        !forwarded || (!meta.firstEnglishAt && meta.claudeMs === undefined) ? h(Pipeline, { run: meta }) : null);
     }
 
     const channels = new Map();
@@ -301,7 +306,7 @@ window.__ModuleLoader__.load({
       const listeners = new Set(), wanted = new Set(), details = new Map();
       let snapshot = { runs: [], inputRuns: new Map(), presentation: { mode: 'zh', layout: 'parallel' }, enabled: false, loaded: false };
       let timer, batchTimer, refs = 0, busy = false, stopped = false, revision = '', pendingConfig = 0, configEpoch = 0;
-      const abort = new AbortController();
+      let abort = new AbortController(), pollAbort, pollEpoch = 0, watchRevision, forceChat = false, errors = 0;
       const emit = value => { snapshot = { ...snapshot, ...value, ...(value.runs ? { inputRuns: indexUserInputs(value.runs) } : {}) }; for (const fn of listeners) fn(); };
       function trim() {
         const retained = new Set(snapshot.runs.map(r => r.id));
@@ -312,21 +317,31 @@ window.__ModuleLoader__.load({
         batchTimer = undefined;
         const ids = snapshot.runs.filter(r => wanted.has(r.id) && details.get(r.id)?.revision !== r.revision).slice(0, 20).map(r => r.id);
         if (!ids.length || stopped) return;
+        const signal = abort.signal;
         try {
-          const result = await api('/display?session=' + encodeURIComponent(sessionId) + '&ids=' + ids.join(','), undefined, abort.signal);
+          const result = await api('/display?session=' + encodeURIComponent(sessionId) + '&ids=' + ids.join(','), undefined, signal);
+          if (signal.aborted) return;
           for (const run of result.runs) details.set(run.id, run);
           trim(); emit({ detailRevision: (snapshot.detailRevision ?? 0) + 1, error: '' });
-        } catch (e) { if (!abort.signal.aborted) emit({ error: e.message }); }
+        } catch (e) { if (!signal.aborted) emit({ error: e.message }); }
       }
       function scheduleBatch() { if (!batchTimer) batchTimer = setTimeout(batch, 25); }
       async function poll() {
         clearTimeout(timer);
         if (busy || stopped || !refs) return;
         busy = true;
+        const token = ++pollEpoch, controller = new AbortController(); pollAbort = controller;
+        const lifetime = abort.signal, cancel = () => controller.abort();
+        lifetime.addEventListener('abort', cancel, { once: true });
+        const signal = controller.signal;
         try {
           if (!document.hidden) {
             const epoch = configEpoch;
-            const result = await api('/chat?session=' + encodeURIComponent(sessionId) + '&revision=' + revision, undefined, abort.signal);
+            const watching = Number.isSafeInteger(watchRevision) && !forceChat;
+            forceChat = false;
+            const result = await api((watching ? '/watch?after=' + watchRevision : '/chat?') + (watching ? '&' : '') + 'session=' + encodeURIComponent(sessionId) + '&revision=' + revision, undefined, signal);
+            if (signal.aborted || token !== pollEpoch) return;
+            errors = 0; if (Number.isSafeInteger(result.watchRevision)) watchRevision = result.watchRevision;
             if (!result.unchanged) {
               for (const run of result.display ?? []) details.set(run.id, run);
               const staleConfig = pendingConfig > 0 || epoch !== configEpoch;
@@ -335,18 +350,29 @@ window.__ModuleLoader__.load({
             }
             scheduleBatch();
           }
-        } catch (e) { if (!abort.signal.aborted) emit({ error: e.message }); }
-        finally { busy = false; if (!stopped && refs) timer = setTimeout(poll, snapshot.runs.some(r => ['translating', 'running', 'translating-output'].includes(r.status) && r.displayStatus !== 'interrupted') ? 900 : 3500); }
+        } catch (e) { if (!signal.aborted) { errors++; forceChat = true; emit({ error: e.message }); } }
+        finally {
+          lifetime.removeEventListener('abort', cancel);
+          if (token === pollEpoch) {
+            busy = false; pollAbort = undefined;
+            const legacy = snapshot.runs.some(r => ['translating', 'running', 'translating-output'].includes(r.status) && r.displayStatus !== 'interrupted') ? 900 : 3500;
+            const delay = document.hidden ? 15000 : errors ? Math.min(10000, 500 * 2 ** Math.min(errors, 4)) : forceChat ? 0 : Number.isSafeInteger(watchRevision) ? 25 : legacy;
+            if (!stopped && refs) timer = setTimeout(poll, delay);
+          }
+        }
       }
+      function refresh() { forceChat = true; clearTimeout(timer); pollAbort?.abort(); if (!busy) poll(); }
+      const visibility = () => { pollAbort?.abort(); if (!document.hidden) refresh(); };
       const result = {
         getSnapshot: () => snapshot,
         subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
-        connect() { refs++; stopped = false; poll(); return () => { refs--; if (!refs) { clearTimeout(timer); clearTimeout(batchTimer); } }; },
+        connect() { refs++; stopped = false; if (abort.signal.aborted) abort = new AbortController(); if (refs === 1) document.addEventListener?.('visibilitychange', visibility); poll(); return () => { refs--; if (!refs) { pollEpoch++; busy = false; abort.abort(); pollAbort?.abort(); clearTimeout(timer); clearTimeout(batchTimer); document.removeEventListener?.('visibilitychange', visibility); } }; },
         watch(id) { wanted.add(id); scheduleBatch(); return () => wanted.delete(id); },
         detail: id => details.get(id),
-        async preference(preference) { const previous = snapshot.presentation; pendingConfig++; configEpoch++; emit({ presentation: preference }); try { await api('/presentation', { sessionId, presentation: preference }); } catch (e) { emit({ presentation: previous }); throw e; } finally { pendingConfig--; revision = ''; poll(); } },
-        async toggle() { const previous = snapshot.enabled; pendingConfig++; configEpoch++; emit({ enabled: !previous }); try { await api('/session', { sessionId, enabled: !previous }); } catch (e) { emit({ enabled: previous }); throw e; } finally { pendingConfig--; revision = ''; poll(); } },
-        dispose() { stopped = true; abort.abort(); clearTimeout(timer); clearTimeout(batchTimer); listeners.clear(); details.clear(); },
+        refresh,
+        async preference(preference) { const previous = snapshot.presentation; pendingConfig++; configEpoch++; emit({ presentation: preference }); try { await api('/presentation', { sessionId, presentation: preference }); } catch (e) { emit({ presentation: previous }); throw e; } finally { pendingConfig--; revision = ''; refresh(); } },
+        async toggle() { const previous = snapshot.enabled; pendingConfig++; configEpoch++; emit({ enabled: !previous }); try { await api('/session', { sessionId, enabled: !previous }); } catch (e) { emit({ enabled: previous }); throw e; } finally { pendingConfig--; revision = ''; refresh(); } },
+        dispose() { stopped = true; pollEpoch++; abort.abort(); pollAbort?.abort(); clearTimeout(timer); clearTimeout(batchTimer); document.removeEventListener?.('visibilitychange', visibility); listeners.clear(); details.clear(); },
       };
       channels.set(sessionId, result);
       if (channels.size > 6) for (const [id, old] of channels) { if (id !== sessionId && old.unused()) { old.dispose(); channels.delete(id); break; } }
@@ -370,7 +396,7 @@ window.__ModuleLoader__.load({
       }, []);
       async function save(fn) { setBusy(true); setError(''); try { await fn(); } catch (e) { setError(e.message); } finally { setBusy(false); } }
       const language = { zh: 'ZH', en: 'EN', bilingual: 'ZH + EN' }[state.presentation.mode];
-      return h('details', { ref: root, className: 'dct-controls', 'data-translate-controls': '0.3.3', onKeyDown: e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } } },
+      return h('details', { ref: root, className: 'dct-controls', 'data-translate-controls': '0.3.5', onKeyDown: e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } } },
         h('summary', { title: 'Translation options', 'aria-label': 'Translation options' }, h('span', { className: 'dct-control-dot', 'data-enabled': state.enabled }), 'Translate', h('span', { className: 'dct-control-language' }, state.enabled ? language : 'Off')),
         h('div', { className: 'dct-control-panel', role: 'dialog', 'aria-label': 'Translation options' },
           h('label', { className: 'dct-control-switch' }, h('input', { type: 'checkbox', checked: state.enabled, disabled: busy || !state.loaded, onChange: () => save(() => bus.toggle()) }), 'Enabled'),
@@ -389,6 +415,21 @@ window.__ModuleLoader__.load({
       });
       return { ...node, data: { ...node.data, blocks } };
     }
+    function Pipeline({ run }) {
+      const [now, setNow] = useState(Date.now);
+      const active = ['translating', 'running', 'translating-output'].includes(run.status) && run.displayStatus !== 'interrupted';
+      useEffect(() => { if (!active) return; const timer = setInterval(() => setNow(Date.now()), 400); return () => clearInterval(timer); }, [active]);
+      const elapsed = (start, duration) => duration !== undefined ? ms(duration) : start && active ? ms(now - start) : '';
+      const requestState = run.forwardedAt ? 'sent' : run.status === 'translating' ? 'active' : 'failed';
+      const claudeState = run.claudeMs !== undefined ? ['failed', 'cancelled'].includes(run.status) ? 'failed' : 'done' : run.forwardedAt ? 'active' : 'waiting';
+      const chineseState = run.displayStatus === 'ready' ? 'done' : ['failed', 'interrupted'].includes(run.displayStatus) ? 'failed' : run.outputStartedAt ? 'active' : 'waiting';
+      const phases = [
+        ['Request', requestState, run.forwardedAt ? 'English sent' : requestState === 'failed' ? 'Not sent' : 'Preparing English', elapsed(run.startedAt, run.inputTranslationMs)],
+        ['Claude', claudeState, claudeState === 'failed' ? 'Failed' : run.claudeMs !== undefined ? 'Finished' : run.firstEnglishAt ? 'English streaming' : run.forwardedAt ? 'Running' : active ? 'Waiting' : 'Not started', elapsed(run.forwardedAt, run.claudeMs)],
+        ['Chinese', chineseState, run.translateOutput === false ? 'Off' : chineseState === 'done' ? 'Ready' : chineseState === 'failed' ? 'Unavailable' : run.firstChineseAt ? 'Streaming' : run.outputStartedAt ? 'Translating' : active ? 'Waiting' : 'Not started', elapsed(run.outputStartedAt, run.outputTranslationMs)],
+      ];
+      return h('ol', { className: 'dct-pipeline', 'aria-label': 'Translation processing', 'data-active': active }, ...phases.map(([name, state, label, duration]) => h('li', { key: name, 'data-state': state, title: name + ': ' + label }, h('span', { className: 'dct-pipeline-dot', 'aria-hidden': true }), h('span', { className: 'dct-pipeline-label' }, h('strong', null, name), h('span', null, label)), h('time', null, duration))));
+    }
     function TranslatedAssistant({ baseEntry, originalT, ...props }) {
       const { node, sessionId } = props;
       const [bus, state] = useChannel(sessionId);
@@ -402,23 +443,28 @@ window.__ModuleLoader__.load({
       useEffect(() => visible && meta ? bus.watch(meta.id) : undefined, [bus, visible, meta?.id, meta?.revision]);
       const run = meta && bus.detail(meta.id);
       const base = (projected = node) => h(baseEntry.component, { ...props, t: originalT, node: projected });
-      if (!meta || state.presentation.mode === 'en') return h('div', { ref, 'data-dct-original': true }, base());
+      if (!meta) return h('div', { ref, 'data-dct-original': true }, base());
+      const pipeline = meta.firstEnglishAt || meta.claudeMs !== undefined || !meta.inputIdentity ? h(Pipeline, { run: meta }) : null;
+      if (state.presentation.mode === 'en' || meta.translateOutput === false) return h('div', { ref, 'data-dct-original': true }, pipeline, base());
       const raw = node.data.blocks.filter(b => b.kind === 'text').map(b => b.text).join('\n\n');
-      if (!raw) return h('div', { ref }, base());
-      const zh = run?.translatedOutput;
+      if (!raw) return h('div', { ref }, pipeline, base());
+      const zh = run?.outputPreview || run?.translatedOutput;
       const failed = ['failed', 'interrupted', 'unavailable'].includes(run?.displayStatus ?? meta.displayStatus);
       const bilingual = state.presentation.mode === 'bilingual';
-      const primary = zh ? base(projectText(node, zh, { textOnly: bilingual })) : bilingual ? null : base(projectText(node, '', { omitText: true }));
+      const complete = (run?.displayStatus ?? meta.displayStatus) === 'ready';
+      const live = !complete && !failed;
+      const primary = zh ? base(projectText(node, zh, { textOnly: true })) : null;
       const english = () => base(projectText(node, raw, { textOnly: true }));
       const languagePane = (lang, content) => h('section', { className: 'dct-reply-pane', lang: lang === 'zh' ? 'zh-CN' : 'en' }, h('div', { className: 'dct-language', 'data-lang': lang }, lang === 'zh' ? 'Chinese' : 'English'), content);
-      const chinese = h(React.Fragment, null, primary, !zh ? h('div', { className: 'dct-pending', role: 'status' }, failed ? 'Chinese translation unavailable' : meta.displayStatus === 'ready' ? 'Loading Chinese response…' : node.data.status === 'running' ? 'Claude is running…' : 'Translating response…') : null);
+      const chinese = h(React.Fragment, null, primary, !zh ? h('div', { className: 'dct-pending', role: 'status' }, failed ? 'Chinese translation unavailable' : complete ? 'Loading Chinese response…' : meta.firstEnglishAt ? 'Preparing Chinese…' : 'Waiting for Claude…') : !complete ? h('div', { className: 'dct-draft-label' }, failed ? 'Partial translation' : 'Chinese · Streaming') : null);
       const mode = state.presentation.mode, layout = state.presentation.layout;
-      return h('div', { ref, className: 'dct-reply', 'data-mode': mode, 'data-layout': layout, 'data-run': meta.id },
-        bilingual ? base(projectText(node, '', { omitText: true })) : null,
-        h('div', { className: 'dct-reply-head' }, h('span', null, mode === 'zh' ? 'Chinese' : 'Bilingual'), zh ? h('button', { type: 'button', title: 'Copy Chinese response', onClick: () => navigator.clipboard.writeText(zh).catch(() => {}) }, 'Copy Chinese') : null),
-        failed && !zh ? h('div', { className: 'dct-reply-error', role: 'alert' }, 'Translation did not complete. The original English response is retained.') : null,
+      return h('div', { ref, className: 'dct-reply', 'data-mode': mode, 'data-layout': layout, 'data-live': live, 'data-run': meta.id },
+        pipeline, base(projectText(node, '', { omitText: true })),
+        h('div', { className: 'dct-reply-head' }, h('span', null, mode === 'zh' ? complete ? 'Chinese' : 'English live · Chinese in progress' : 'Bilingual'), zh ? h(Copy, { text: zh }) : null),
+        failed ? h('div', { className: 'dct-reply-error', role: 'alert' }, 'Chinese translation did not complete. The original English response is retained.') : null,
         mode === 'bilingual' && layout !== 'collapsed' ? h('div', { className: 'dct-reply-grid' }, languagePane('zh', chinese), languagePane('en', english())) :
-          h(React.Fragment, null, chinese, mode === 'bilingual' || failed ? h('details', { open: failed || undefined }, h('summary', null, 'English · Original response'), english()) : null));
+          live && mode === 'zh' ? h('div', { className: 'dct-reply-grid' }, languagePane('en', english()), languagePane('zh', chinese)) :
+            h(React.Fragment, null, chinese, h('details', { open: live || failed || undefined }, h('summary', null, 'English · Original response'), english())));
     }
 
     function apply(ctx) {

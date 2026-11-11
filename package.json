@@ -1,6 +1,6 @@
 {
   "name": "dsh-claude-translate",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Use local Claude Code seamlessly in DSH with Chinese-English translation, local Codex or Qwen/DeepSeek keys, and a truthful bilingual timeline.",
   "type": "module",
   "main": "src/index.js",
@@ -11,5 +11,6 @@
   "repository": {"type": "git", "url": "git+https://github.com/ChangfengHU/dsh-claude-translate.git"},
   "license": "MIT",
   "engines": {"node": ">=22"},
+  "dependencies": {"partial-json": "0.1.7", "mdast-util-from-markdown": "2.1.0"},
   "peerDependencies": {"@deepseek-ai/cordis": "^4.0.1", "@deepseek-ai/dsh-llm": "*", "@deepseek-ai/dsh-client-ui-conversation": "*", "@deepseek-ai/dsh-client-locale": "*", "react": "^18.2.0"}
 }

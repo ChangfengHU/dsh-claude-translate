@@ -8,7 +8,7 @@ export function createRpcHandler(ports) {
   const handler = createHandler({ ...ports, admit: () => ({}) });
   return async (endpoint, payload, signal) => {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload) || Buffer.byteLength(JSON.stringify(payload)) > 20000) return { ok: false, error: { code: 'bad-request', message: 'Invalid translation request.', details: {} } };
-    const reads = new Set(['state', 'runs', 'run', 'models', 'chat', 'display']);
+    const reads = new Set(['state', 'runs', 'run', 'models', 'chat', 'display', 'watch']);
     const writes = new Set(['config', 'session', 'test', 'presentation']);
     if (!reads.has(endpoint) && !writes.has(endpoint)) return { ok: false, error: { code: 'not-found', message: 'Unknown translation endpoint.', details: {} } };
     const query = reads.has(endpoint) ? '?' + new URLSearchParams(payload).toString() : '';

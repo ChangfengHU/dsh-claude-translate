@@ -32,7 +32,7 @@ export function runSummary(r) {
     status: r.status, startedAt: r.startedAt, finishedAt: r.finishedAt, model: r.original?.model, position: r.position, displayStatus: r.displayStatus,
     inputIdentity: r.inputIdentity, forwardedAt: r.forwardedAt, translation: r.translation, inputTranslationMs: r.inputTranslationMs, claudeMs: r.claudeMs, outputTranslationMs: r.outputTranslationMs,
     preview: user(r.original).slice(0, 140), input: user(r.original), forwardedInput: user(r.forwarded),
-    error: r.error, revision: [r.status, r.updatedAt ?? 0, r.rawOutput?.length ?? 0, r.translatedOutput?.length ?? 0].join(':') };
+    error: r.error, revision: [r.status, r.updatedAt ?? 0, r.liveRevision ?? 0, r.rawOutput?.length ?? 0, r.translatedOutput?.length ?? 0].join(':') };
 }
 export function compactRun(r) {
   const { original, forwarded, messageMapping, ...small } = r;
@@ -48,6 +48,7 @@ export class Store {
     this.active = new Map(); this.index = new Map(); this.sessions = new Map(); this.blobInfo = new Map(); this.display = new Map();
     this.config = { ...DEFAULT_CONFIG, sessions: {} }; this.queue = Promise.resolve(); this.writeQueue = Promise.resolve();
     this.maxRuns = maxRuns; this.maxBytes = maxBytes; this.metrics = { listReads: 0, detailReads: 0 };
+    this.generations = new Map(); this.waiters = new Map();
   }
   async init() {
     await mkdir(this.runs, { recursive: true, mode: 0o700 }); await mkdir(this.blobs, { recursive: true, mode: 0o700 });
@@ -75,18 +76,37 @@ export class Store {
     finally { await rm(temporary, { force: true }); }
   }
   saveConfig(patch) {
-    const job = this.queue.then(async () => { const next = validateConfig({ ...this.config, ...(typeof patch === 'function' ? patch(this.config) : patch) }); await this.atomic(join(this.directory, 'config.json'), next); this.config = next; return next; });
+    const job = this.queue.then(async () => { const next = validateConfig({ ...this.config, ...(typeof patch === 'function' ? patch(this.config) : patch) }); await this.atomic(join(this.directory, 'config.json'), next); this.config = next; for (const session of this.waiters.keys()) this.notify(session); return next; });
     this.queue = job.catch(() => {}); return job;
   }
   session(id) { if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) throw failure('INVALID_SESSION', 'Invalid session identifier.'); }
+  touch(run) { run.liveRevision = (run.liveRevision ?? 0) + 1; this.notify(run.sessionId); }
+  notify(session) {
+    this.generations.set(session, (this.generations.get(session) ?? 0) + 1);
+    for (const wake of this.waiters.get(session) ?? []) wake();
+  }
+  liveRevision(session) { return this.generations.get(session) ?? 0; }
+  waitForChange(session, after, signal, timeout = 15000) {
+    this.session(session); signal?.throwIfAborted();
+    if (!Number.isSafeInteger(after) || after < 0) throw failure('INVALID_BODY', 'Invalid watch revision.');
+    if (this.liveRevision(session) !== after) return Promise.resolve();
+    if ((this.waiters.get(session)?.size ?? 0) >= 24 || [...this.waiters.values()].reduce((n, set) => n + set.size, 0) >= 192) throw failure('TRANSLATION_BUSY', 'Too many translation watchers.');
+    return new Promise((resolve, reject) => {
+      const subscribers = this.waiters.get(session) ?? new Set(); this.waiters.set(session, subscribers);
+      const finish = error => { clearTimeout(timer); subscribers.delete(wake); if (!subscribers.size) this.waiters.delete(session); signal?.removeEventListener('abort', abort); error ? reject(error) : resolve(); };
+      const wake = () => finish(); const abort = () => finish(signal.reason ?? new Error('Aborted'));
+      const timer = setTimeout(wake, timeout); subscribers.add(wake); signal?.addEventListener('abort', abort, { once: true });
+    });
+  }
   putDisplay(run, summary = runSummary(run)) {
-    this.display.set(run.id, { id: run.id, sessionId: run.sessionId, purpose: summary.purpose, position: run.position, inputIdentity: run.inputIdentity, forwardedAt: run.forwardedAt, forwardedInput: run.forwardedInput ?? summary.forwardedInput ?? '', startedAt: run.startedAt, status: run.status, displayStatus: run.displayStatus ?? (run.translatedOutput ? 'ready' : run.status === 'translating-output' ? 'interrupted' : 'unavailable'), rawOutput: run.rawOutput ?? '', translatedOutput: run.translatedOutput ?? '', outputTranslationError: run.outputTranslationError, revision: summary.revision });
+    this.display.set(run.id, { id: run.id, sessionId: run.sessionId, purpose: summary.purpose, position: run.position, inputIdentity: run.inputIdentity, forwardedAt: run.forwardedAt, forwardedInput: run.forwardedInput ?? summary.forwardedInput ?? '', startedAt: run.startedAt, status: run.status, displayStatus: run.displayStatus ?? (run.translatedOutput ? 'ready' : run.status === 'translating-output' ? 'interrupted' : 'unavailable'), rawOutput: run.rawOutput ?? '', translatedOutput: run.translatedOutput ?? '', outputTranslationError: run.outputTranslationError, firstEnglishAt: run.firstEnglishAt, firstChineseAt: run.firstChineseAt, inputTranslationMs: run.inputTranslationMs, claudeMs: run.claudeMs, outputTranslationMs: run.outputTranslationMs, outputStartedAt: run.outputStartedAt, revision: summary.revision });
+    Object.assign(this.display.get(run.id), { translateOutput: run.translateOutput, executionStatus: run.executionStatus });
   }
   displayPage(session) {
     this.session(session);
     const records = new Map((this.sessions.get(session) ?? []).map(id => [id, this.display.get(id)]));
     for (const run of this.active.values()) if (run.sessionId === session) records.set(run.id, { ...run, displayStatus: run.displayStatus ?? 'pending', revision: runSummary(run).revision });
-    return [...records.values()].filter(r => r && r.purpose === 'conversation').map(({ id, purpose, position, inputIdentity, forwardedAt, status, displayStatus, revision, startedAt }) => ({ id, purpose, position, inputIdentity, forwardedAt, status, displayStatus, revision, startedAt }));
+    return [...records.values()].filter(r => r && r.purpose === 'conversation').map(({ id, purpose, position, inputIdentity, forwardedAt, status, displayStatus, revision, startedAt, firstEnglishAt, firstChineseAt, inputTranslationMs, claudeMs, outputTranslationMs, outputStartedAt, translateOutput, executionStatus }) => ({ id, purpose, position, inputIdentity, forwardedAt, status, displayStatus, revision, startedAt, firstEnglishAt, firstChineseAt, inputTranslationMs, claudeMs, outputTranslationMs, outputStartedAt, translateOutput, executionStatus }));
   }
   displayRuns(session, ids) {
     this.session(session);
@@ -94,7 +114,7 @@ export class Store {
     return ids.flatMap(id => {
       const r = this.active.get(id) ?? this.display.get(id);
       if (!r || r.sessionId !== session || (r.purpose ?? 'conversation') !== 'conversation') return [];
-      return [{ id, position: r.position, inputIdentity: r.inputIdentity, forwardedAt: r.forwardedAt, forwardedInput: r.forwardedInput ?? '', status: r.status, displayStatus: r.displayStatus ?? (r.translatedOutput ? 'ready' : 'unavailable'), rawOutput: r.rawOutput, translatedOutput: r.translatedOutput, outputTranslationError: r.outputTranslationError, revision: r.revision ?? runSummary(r).revision }];
+      return [{ id, position: r.position, inputIdentity: r.inputIdentity, forwardedAt: r.forwardedAt, forwardedInput: r.forwardedInput ?? '', inputPreview: r.inputPreview ?? '', outputPreview: r.outputPreview ?? '', status: r.status, displayStatus: r.displayStatus ?? (r.translatedOutput ? 'ready' : 'unavailable'), rawOutput: r.rawOutput, translatedOutput: r.translatedOutput, outputTranslationError: r.outputTranslationError, revision: r.revision ?? runSummary(r).revision }];
     });
   }
   putIndex(id, value) {
@@ -128,6 +148,7 @@ export class Store {
       await this.atomic(join(this.runs, clean.id + '.json'), saved);
       this.putIndex(clean.id, { summary: metadata, refs: saved.refs, size: Buffer.byteLength(JSON.stringify(saved)) });
       this.putDisplay(clean);
+      this.notify(clean.sessionId);
       if (this.index.size > this.maxRuns) await this.pruneNow();
     });
     this.writeQueue = job.catch(() => {}); return job;

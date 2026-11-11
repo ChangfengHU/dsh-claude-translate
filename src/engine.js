@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { TextTranslator, translateRequest, snapshotRequest, hash, failure, redact, PIPELINE, ENGLISH_POLICY } from './text.js';
 import { claudeRoutes, validateSelection } from './catalog.js';
 import { lastUserText } from './presentation.js';
+import { OutputTranslation } from './output.js';
 
 export class TranslationEngine {
   constructor({ store, execute, makeMessage, dispatch, catalog, position = () => undefined, inputIdentity = () => undefined }) {
@@ -15,9 +16,10 @@ export class TranslationEngine {
     this.catalog = catalog;
     this.jobs = new Map();
     this.closed = false;
+    this.notifications = new Map();
   }
   async idle() { await Promise.allSettled([...this.jobs.values()].map(j => j.promise)); }
-  async dispose() { this.closed = true; for (const job of this.jobs.values()) job.controller.abort(); await this.idle(); }
+  async dispose() { this.closed = true; for (const timer of this.notifications.values()) clearTimeout(timer); this.notifications.clear(); for (const job of this.jobs.values()) job.cancel(); await this.idle(); }
   async seed(sessionId, config) {
     if (!sessionId) return;
     const latest = this.store.page(sessionId, { limit: 1 }).runs[0];
@@ -35,23 +37,24 @@ export class TranslationEngine {
     }
   }
   output(run, config) {
-    const controller = new AbortController();
-    const promise = (async () => {
-      try {
-        controller.signal.throwIfAborted();
-        run.translatedOutput = redact(await this.translator.translate(run.rawOutput, 'zh', config, controller.signal, run.meter));
-        run.status = 'succeeded'; run.displayStatus = 'ready';
-      } catch (error) {
-        run.status = 'partial'; run.displayStatus = controller.signal.aborted ? 'interrupted' : 'failed';
-        run.outputTranslationError = { code: error.code ?? 'TRANSLATION_FAILED', message: 'Claude completed, but the display translation failed. The original answer is retained.' };
-      } finally {
-        run.outputTranslationMs = Date.now() - run.claudeFinishedAt; run.finishedAt = Date.now();
-        try { await this.store.save(run); }
-        finally { this.store.active.delete(run.id); this.jobs.delete(run.id); await this.store.prune(); }
-      }
-    })();
-    this.jobs.set(run.id, { controller, promise });
-    promise.catch(error => console.warn('[dsh-claude-translate] display save failed:', error.code ?? 'STORAGE_ERROR'));
+    const existing = this.jobs.get(run.id); if (existing) return existing;
+    const job = new OutputTranslation({ run, config, translator: this.translator, changed: () => this.changed(run), completed: async ({ success, interrupted }) => {
+      run.outputPreview = '';
+      if (run.executionStatus === 'succeeded') {
+        run.status = success ? 'succeeded' : 'partial'; run.displayStatus = success ? 'ready' : interrupted ? 'interrupted' : 'failed';
+        if (!success) run.outputTranslationError = { code: interrupted ? 'DISPLAY_INTERRUPTED' : 'TRANSLATION_FAILED', message: 'Display translation did not complete. The original English answer is retained.' };
+      } else run.displayStatus = 'unavailable';
+      run.outputTranslationMs = Date.now() - (run.outputStartedAt ?? run.claudeFinishedAt ?? Date.now()); run.finishedAt = Date.now();
+      try { await this.store.save(run); }
+      finally { this.store.active.delete(run.id); this.jobs.delete(run.id); this.changed(run, true); await this.store.prune(); }
+    } });
+    this.jobs.set(run.id, job); return job;
+  }
+  changed(run, force = false) {
+    const publish = () => { clearTimeout(this.notifications.get(run.id)); this.notifications.delete(run.id); run.notifiedAt = Date.now(); this.store.touch(run); };
+    const remaining = 65 - (Date.now() - (run.notifiedAt ?? 0));
+    if (force || remaining <= 0) publish();
+    else if (!this.notifications.has(run.id)) this.notifications.set(run.id, setTimeout(publish, remaining));
   }
   enabled(options) {
     const c = this.store.config;
@@ -69,6 +72,7 @@ export class TranslationEngine {
     const run = {
       version: 1, purpose: options.purpose ?? 'conversation', id: `tr_${randomUUID()}`, sessionId: options.sessionId ?? '_unscoped', startedAt: Date.now(), status: 'translating',
       original: snapshotRequest(options), inputIdentity: this.inputIdentity(options), rawOutput: '', translatedOutput: '',
+      translateOutput: config.translateOutput,
       position: options.purpose ? undefined : this.position(options.sessionId), pipeline: PIPELINE, configFingerprint: hash(JSON.stringify([PIPELINE, config.mode, config.provider, config.model, config.baseURL])), displayStatus: 'pending',
       translation: { mode: config.mode, provider: config.mode === 'api' ? new URL(config.baseURL).host : config.provider, model: config.model },
       meter: { requests: 0, cacheHits: 0, usage: [] },
@@ -79,7 +83,7 @@ export class TranslationEngine {
     let finished = false;
     try {
       await this.store.save(run);
-      const prepared = await translateRequest(options, this.translator, config, this.makeMessage, run.meter);
+      const prepared = await translateRequest(options, this.translator, config, this.makeMessage, run.meter, preview => { run.inputPreview = redact(preview); this.changed(run); });
       options.signal?.throwIfAborted();
       run.forwarded = snapshotRequest(prepared.request);
       run.forwardedInput = lastUserText(run.forwarded);
@@ -87,6 +91,7 @@ export class TranslationEngine {
       run.messageMapping = prepared.mapping;
       run.translatedBlocks = prepared.translatedBlocks;
       run.forwardedAt = Date.now();
+      run.inputPreview = '';
       run.inputTranslationMs = run.forwardedAt - run.startedAt;
       run.status = 'running';
       await this.store.save(run);
@@ -96,6 +101,11 @@ export class TranslationEngine {
         if (chunk.type === 'text-delta') textBlocks.set(chunk.index, (textBlocks.get(chunk.index) ?? '') + chunk.text);
         if (chunk.type === 'block-end' && chunk.block.type === 'text') textBlocks.set(chunk.index, chunk.block.text);
         run.rawOutput = redact([...textBlocks.values()].join('\n\n'));
+        if (run.rawOutput) {
+          run.firstEnglishAt ??= Date.now();
+          if (config.translateOutput) this.output(run, config).request();
+        }
+        this.changed(run);
         if (chunk.type === 'usage') run.claudeUsage = chunk.usage;
         if (chunk.type === 'finish') {
           run.claudeFinishedAt = Date.now();
@@ -109,7 +119,8 @@ export class TranslationEngine {
           } else { run.displayStatus = 'unavailable'; run.finishedAt = Date.now(); }
           await this.store.save(run);
           finished = true;
-          if (run.status === 'translating-output') this.output(run, config);
+          if (run.status === 'translating-output') this.output(run, config).request(true);
+          else this.jobs.get(run.id)?.cancel();
         }
         // Canonical English model output remains lossless in DSH history.
         yield chunk;
@@ -117,6 +128,7 @@ export class TranslationEngine {
       if (!finished) throw failure('INCOMPLETE_STREAM', 'Claude stream ended without a terminal event.');
     } catch (error) {
       run.status = options.signal?.aborted ? 'cancelled' : 'failed';
+      run.inputPreview = ''; this.jobs.get(run.id)?.cancel();
       run.executionStatus = run.status; run.displayStatus = 'unavailable';
       run.error = { code: error.code ?? 'TRANSLATION_FAILED', message: run.forwardedAt ? 'The forwarded Claude request did not complete.' : 'Input translation failed. Claude Code was not called.' };
       run.finishedAt = Date.now();
@@ -124,7 +136,7 @@ export class TranslationEngine {
       throw error;
     } finally {
       if (!finished && !run.finishedAt) { run.status = 'cancelled'; run.executionStatus = 'cancelled'; run.displayStatus = 'unavailable'; run.finishedAt = Date.now(); await this.store.save(run); }
-      if (!this.jobs.has(run.id)) { this.store.active.delete(run.id); await this.store.prune(); }
+      if (!this.jobs.has(run.id)) { this.store.active.delete(run.id); this.changed(run, true); await this.store.prune(); }
     }
   }
 }
