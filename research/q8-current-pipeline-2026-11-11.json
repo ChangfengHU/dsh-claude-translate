@@ -1,0 +1,59 @@
+{
+  "method": "Existing DSH translation test RPC; explicit existing Qwen route; no Claude call or config change.",
+  "results": [
+    {
+      "status": 200,
+      "data": {
+        "type": "server-response",
+        "rpcId": "4b5f9b96-8eff-44be-8c60-3fc9ff8e721f",
+        "result": {
+          "ok": true,
+          "value": {
+            "ok": true,
+            "input": "周五下午可能下雨，请把出门前的准备整理成四项，不需要推荐酒店。",
+            "output": "It might rain on Friday afternoon. Please organize the preparations before going out into four items. No hotel recommendations are needed.",
+            "durationMs": 1849,
+            "meter": {
+              "requests": 1,
+              "cacheHits": 0,
+              "usage": [
+                {
+                  "inputTokens": 199,
+                  "outputTokens": 35,
+                  "cacheReadTokens": 0
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "status": 200,
+      "data": {
+        "type": "server-response",
+        "rpcId": "de0c0230-0eb1-4014-a63e-93697845185a",
+        "result": {
+          "ok": true,
+          "value": {
+            "ok": true,
+            "input": "只检查 `src/session.ts` 里的 `verifyToken()`，先解释原因，不要修改文件，也不要重启服务。",
+            "output": "Only check `verifyToken()` within `src/session.ts`, first explain the reason, do not modify the file, and do not restart the service.",
+            "durationMs": 1864,
+            "meter": {
+              "requests": 1,
+              "cacheHits": 0,
+              "usage": [
+                {
+                  "inputTokens": 242,
+                  "outputTokens": 77,
+                  "cacheReadTokens": 0
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-11",
+  "model": "tencent/HY-MT1.5-1.8B-GGUF Q8_0",
+  "modelRevision": "265b2e615a7dc9b06c435dc878829ad99a512ba2",
+  "weightSHA256": "6789b06d0902f2f5312c0e1703d56ccbddfcfb6c653d22519b7c720f7db9a98e",
+  "weightBytes": 1908528288,
+  "engine": {
+    "project": "llama.cpp",
+    "commit": "cd959ba",
+    "CUDA": "13.0",
+    "ctxSize": 2048,
+    "parallel": 1
+  },
+  "hardware": "NVIDIA GeForce RTX 5090",
+  "loadToReadyMs": 1150,
+  "observedResidentGpuMiB": 2526,
+  "processMemory": [
+    "VmHWM:\t 2233156 kB",
+    "VmRSS:\t  796904 kB"
+  ],
+  "localProbes": [
+    {
+      "index": 0,
+      "coldRequest": true,
+      "status": 200,
+      "firstTextMs": 106,
+      "totalMs": 197,
+      "chunks": 32,
+      "output": "It might rain tomorrow afternoon. Please help me organize my preparations before going out into three categories of tasks. Do not recommend any hotels for me to choose from."
+    },
+    {
+      "index": 1,
+      "coldRequest": false,
+      "status": 200,
+      "firstTextMs": 24,
+      "totalMs": 104,
+      "chunks": 32,
+      "output": "It might rain tomorrow afternoon. Please help me organize my preparations before going out into three categories of tasks. Do not recommend any hotels for me to choose from."
+    },
+    {
+      "index": 2,
+      "coldRequest": false,
+      "status": 200,
+      "firstTextMs": 13,
+      "totalMs": 87,
+      "chunks": 32,
+      "output": "It might rain tomorrow afternoon. Please help me organize my preparations before going out into three categories of tasks. Do not recommend any hotels for me to choose from."
+    }
+  ],
+  "notes": [
+    "Local short-text probes, not the full eight-case suite.",
+    "First local probe was the first model request; DSH tunnel warm-up reached the model after the local probes completed.",
+    "Server was bound to loopback only and stopped after tests. Existing ComfyUI process was not restarted or unloaded."
+  ]
+}

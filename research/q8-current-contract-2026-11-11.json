@@ -1,0 +1,173 @@
+{
+  "method": "Unmodified production TextTranslator and API executor against Qwen-Flash; fresh translator caches per case; direct API mode, not native route overhead; no DSH configuration changes; total latency only because current executor buffers JSON.",
+  "results": [
+    {
+      "caseId": "daily",
+      "direction": "en",
+      "status": 200,
+      "totalMs": 1395,
+      "output": "It might rain tomorrow afternoon, help me organize the preparations before going out into three items, do not recommend hotels.",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 34,
+            "prompt_tokens": 200,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 234
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "code-scope",
+      "direction": "en",
+      "status": 200,
+      "totalMs": 1290,
+      "output": "Only modify `src/auth.ts` within `verifySession()`, do not change public interfaces; retain `/api/session` and `X-Request-ID`, first provide the plan, do not execute `git push`.",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 123,
+            "prompt_tokens": 291,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 414
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "clarification",
+      "direction": "en",
+      "status": 200,
+      "totalMs": 903,
+      "output": "If it is impossible to determine which day the user wants to adjust, first ask for clarification about the date; do not regenerate the entire itinerary or delete existing hotels before the user confirms.",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 48,
+            "prompt_tokens": 208,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 256
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "context-correction",
+      "direction": "en",
+      "status": 200,
+      "totalMs": 886,
+      "output": "Not tomorrow, but the day after tomorrow morning.I'll take the subway, not drive.Please only adjust the transportation suggestions; keep the attractions and restaurants unchanged.",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 58,
+            "prompt_tokens": 223,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 281
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "retry-count",
+      "direction": "zh",
+      "status": 200,
+      "totalMs": 769,
+      "output": "经过3次重试后请求成功，因此总共尝试了4次。 超时时间为6秒。 不要自动重试付款。",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 53,
+            "prompt_tokens": 227,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 280
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "markdown-json",
+      "direction": "zh",
+      "status": 200,
+      "totalMs": 1233,
+      "output": "## 结果\n运行耗时1.25秒。 未进行预订或付款。\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\",\"retryCount\":0}\n```\n\n保持`requestId`不变。",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 104,
+            "prompt_tokens": 278,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 382
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "ordinary-answer",
+      "direction": "zh",
+      "status": 200,
+      "totalMs": 1018,
+      "output": "乘坐地铁出行时，请在出发前查看服务变更情况，带上您的交通卡或支付应用程序，并为换乘预留充足时间。 如果下雨，请带伞。 无需预订酒店。",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 63,
+            "prompt_tokens": 240,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 303
+          }
+        ]
+      }
+    },
+    {
+      "caseId": "long-technical",
+      "direction": "zh",
+      "status": 200,
+      "totalMs": 2435,
+      "output": "在执行前验证请求。 如果授权过期，请停止并要求用户重新登录；切勿自动重试支付。 保持 `requestId`、`status` 和 `retryCount` 不变。 随着原始答案的到达实时流式传输，并在准备中文版本时显示单独的进度指示器。 不要用不完整的翻译替换原始证据。 显示实际错误，而不是声称成功。 保持 Markdown 标题和 JSON 字段名称不变。 超时时间为 6 秒，仅允许一次受控重试。",
+      "meter": {
+        "requests": 1,
+        "cacheHits": 0,
+        "usage": [
+          {
+            "completion_tokens": 215,
+            "prompt_tokens": 387,
+            "prompt_tokens_details": {
+              "cached_tokens": 0
+            },
+            "total_tokens": 602
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,378 @@
+{
+  "date": "2026-11-11",
+  "method": "Sequential requests from DSH Linux 114; rotated model order; one warm-up per candidate excluded; eight ordinary synthetic texts with shared literal protection; raw streaming APIs, not a Claude conversation or production translation contract; no cost ranking; manual semantic review required.",
+  "limits": {
+    "repeats": 1,
+    "cases": 8,
+    "timeoutMs": 20000,
+    "maxOutputTokens": 700
+  },
+  "cases": [
+    {
+      "id": "daily",
+      "direction": "en",
+      "source": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。",
+      "checks": [
+        "possible rain, not certain rain",
+        "three preparation items",
+        "do not recommend hotels"
+      ]
+    },
+    {
+      "id": "code-scope",
+      "direction": "en",
+      "source": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。",
+      "checks": [
+        "modify function within file, not file within function",
+        "preserve public API",
+        "plan first",
+        "do not push"
+      ]
+    },
+    {
+      "id": "clarification",
+      "direction": "en",
+      "source": "如果无法判断用户要调整哪一天，先追问日期；用户确认之前不要重新生成整个行程，也不要删除已有酒店。",
+      "checks": [
+        "ask for the date if uncertain",
+        "wait for confirmation before regenerating",
+        "do not delete existing hotels"
+      ]
+    },
+    {
+      "id": "context-correction",
+      "direction": "en",
+      "source": "不是明天，是后天上午。我坐地铁，不开车。请只调整交通建议，景点和餐厅都保持不变。",
+      "checks": [
+        "day after tomorrow morning, not tomorrow",
+        "subway, not driving",
+        "only transport changes",
+        "attractions and restaurants unchanged"
+      ]
+    },
+    {
+      "id": "retry-count",
+      "direction": "zh",
+      "source": "The request succeeded after 3 retries, so it made 4 attempts in total. The timeout is 6 seconds. Do not retry payments automatically.",
+      "checks": [
+        "three retries",
+        "four total attempts",
+        "six seconds",
+        "no automatic payment retry"
+      ]
+    },
+    {
+      "id": "markdown-json",
+      "direction": "zh",
+      "source": "## Result\nThe run completed in 1.25 seconds. No booking or payment was made.\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\",\"retryCount\":0}\n```\n\nKeep `requestId` unchanged.",
+      "checks": [
+        "Markdown heading remains",
+        "1.25 seconds",
+        "no booking/payment claim",
+        "JSON byte-identical",
+        "requestId byte-identical"
+      ]
+    },
+    {
+      "id": "ordinary-answer",
+      "direction": "zh",
+      "source": "For a subway trip, check service changes before leaving, bring your transit card or payment app, and leave extra time for transfers. If it rains, take an umbrella. There is no need to book a hotel.",
+      "checks": [
+        "service changes",
+        "transit payment",
+        "transfer time",
+        "conditional rain",
+        "no hotel needed"
+      ]
+    },
+    {
+      "id": "long-technical",
+      "direction": "zh",
+      "source": "Validate the request before execution. If authorization expires, stop and ask the user to sign in again; never retry a payment automatically. Keep `requestId`, `status`, and `retryCount` unchanged. Stream the original answer as it arrives, and show a separate progress indicator while the Chinese version is prepared. Do not replace the original evidence with an incomplete translation. Display the actual error instead of claiming success. Keep the Markdown headings and the JSON field names unchanged. The timeout is 6 seconds and only one controlled retry is allowed.",
+      "checks": [
+        "validate first",
+        "stop and reauthenticate on expiry",
+        "never automatically retry payment",
+        "preserve identifiers",
+        "original streams immediately",
+        "separate translation progress",
+        "preserve evidence",
+        "show actual errors",
+        "six seconds and one retry"
+      ]
+    }
+  ],
+  "warmups": [
+    {
+      "model": "hy-mt-q8",
+      "caseId": "warmup",
+      "direction": "en",
+      "warmup": true,
+      "status": 200,
+      "headersMs": 499,
+      "firstTextMs": 501,
+      "totalMs": 718,
+      "contentChunks": 9,
+      "maxGapMs": 205,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 26,
+        "prompt_ms": 6.58,
+        "prompt_per_token_ms": 0.2530769230769231,
+        "prompt_per_second": 3951.367781155015,
+        "predicted_n": 10,
+        "predicted_ms": 27.025,
+        "predicted_per_token_ms": 3.0027777777777778,
+        "predicted_per_second": 333.02497687326553
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "Please help me organize today’s work."
+    }
+  ],
+  "results": [
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "daily",
+      "direction": "en",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 459,
+      "firstTextMs": 470,
+      "totalMs": 707,
+      "contentChunks": 32,
+      "maxGapMs": 184,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 38,
+        "prompt_ms": 11.207,
+        "prompt_per_token_ms": 0.294921052631579,
+        "prompt_per_second": 3390.737931649862,
+        "predicted_n": 33,
+        "predicted_ms": 99.933,
+        "predicted_per_token_ms": 3.12290625,
+        "predicted_per_second": 320.2145437443087
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "It might rain tomorrow afternoon. Please help me organize my preparations before going out into three categories of tasks. Do not recommend any hotels for me to choose from."
+    },
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "code-scope",
+      "direction": "en",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 458,
+      "firstTextMs": 470,
+      "totalMs": 1148,
+      "contentChunks": 108,
+      "maxGapMs": 186,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 121,
+        "prompt_ms": 14.316,
+        "prompt_per_token_ms": 0.11831404958677687,
+        "prompt_per_second": 8452.081587035485,
+        "predicted_n": 109,
+        "predicted_ms": 281.57,
+        "predicted_per_token_ms": 2.6071296296296294,
+        "predicted_per_second": 383.56358987108
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "Only modify the `verifySession()` in the file `src/auth.ts`. Do not change any of the public interfaces. Keep `/api/session` and `X-Request-ID`. Provide the solution as is, without implementing `git push`."
+    },
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "clarification",
+      "direction": "en",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 467,
+      "firstTextMs": 472,
+      "totalMs": 713,
+      "contentChunks": 43,
+      "maxGapMs": 202,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 47,
+        "prompt_ms": 6.993,
+        "prompt_per_token_ms": 0.1487872340425532,
+        "prompt_per_second": 6721.006721006721,
+        "predicted_n": 44,
+        "predicted_ms": 105.732,
+        "predicted_per_token_ms": 2.4588837209302326,
+        "predicted_per_second": 406.68860893579995
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "If it’s not possible to determine which day the user wants to adjust, please ask for the date first. Before the user gives consent, do not generate a new itinerary, nor delete any existing hotels."
+    },
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "context-correction",
+      "direction": "en",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 459,
+      "firstTextMs": 467,
+      "totalMs": 700,
+      "contentChunks": 39,
+      "maxGapMs": 191,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 46,
+        "prompt_ms": 7.342,
+        "prompt_per_token_ms": 0.1596086956521739,
+        "prompt_per_second": 6265.322800326887,
+        "predicted_n": 40,
+        "predicted_ms": 103.979,
+        "predicted_per_token_ms": 2.666128205128205,
+        "predicted_per_second": 375.0757364467825
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "It’s not tomorrow, but the day after tomorrow, in the morning. I will take the subway instead of driving. Please only adjust the transportation arrangements; the attractions and restaurants remain unchanged."
+    },
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "retry-count",
+      "direction": "zh",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 457,
+      "firstTextMs": 468,
+      "totalMs": 701,
+      "contentChunks": 30,
+      "maxGapMs": 180,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 49,
+        "prompt_ms": 11.159,
+        "prompt_per_token_ms": 0.22773469387755105,
+        "prompt_per_second": 4391.074469038444,
+        "predicted_n": 31,
+        "predicted_ms": 84.382,
+        "predicted_per_token_ms": 2.8127333333333335,
+        "predicted_per_second": 355.52606006020244
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "经过3次尝试后，请求成功执行了。因此，总共进行了4次尝试。超时时间为6秒。请勿自动重试付款操作。"
+    },
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "markdown-json",
+      "direction": "zh",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 457,
+      "firstTextMs": 470,
+      "totalMs": 715,
+      "contentChunks": 58,
+      "maxGapMs": 177,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 75,
+        "prompt_ms": 10.36,
+        "prompt_per_token_ms": 0.13813333333333333,
+        "prompt_per_second": 7239.382239382239,
+        "predicted_n": 59,
+        "predicted_ms": 156.338,
+        "predicted_per_token_ms": 2.6954827586206895,
+        "predicted_per_second": 370.9910578362267
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "## 结果\n该操作在1.25秒内完成。无需进行任何预订或支付操作。\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\",\"retryCount\":0}\n```\n\n保持`requestId`不变。"
+    },
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "ordinary-answer",
+      "direction": "zh",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 459,
+      "firstTextMs": 465,
+      "totalMs": 705,
+      "contentChunks": 39,
+      "maxGapMs": 181,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 62,
+        "prompt_ms": 7.971,
+        "prompt_per_token_ms": 0.12856451612903225,
+        "prompt_per_second": 7778.195960356292,
+        "predicted_n": 40,
+        "predicted_ms": 104.966,
+        "predicted_per_token_ms": 2.6914358974358974,
+        "predicted_per_second": 371.5488824952842
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "在乘坐地铁时，请提前了解运营情况的变化，带上你的交通卡或支付应用程序，并预留足够的時間用于换乘。如果下雨，请携带雨伞。无需预订酒店。"
+    },
+    {
+      "repeat": 0,
+      "model": "hy-mt-q8",
+      "caseId": "long-technical",
+      "direction": "zh",
+      "warmup": false,
+      "status": 200,
+      "headersMs": 467,
+      "firstTextMs": 483,
+      "totalMs": 1164,
+      "contentChunks": 158,
+      "maxGapMs": 198,
+      "finishReason": "stop",
+      "actualModel": "hy-mt-q8",
+      "usage": null,
+      "timings": {
+        "cache_n": 0,
+        "prompt_n": 162,
+        "prompt_ms": 19.123,
+        "prompt_per_token_ms": 0.11804320987654322,
+        "prompt_per_second": 8471.474141086648,
+        "predicted_n": 159,
+        "predicted_ms": 375.415,
+        "predicted_per_token_ms": 2.3760443037974683,
+        "predicted_per_second": 420.86757321897096
+      },
+      "streaming": true,
+      "literalPass": true,
+      "output": "在执行之前，请先验证该请求是否有效。如果授权失效，请停止执行，并提示用户重新登录；切勿自动重试支付操作。请保持`requestId`、`status`和`retryCount`这些参数的不变状态。当原始答案准备好时，立即将其显示出来；在准备中文版本的过程中，请使用单独的进度指示器来显示当前进度。请不要用不完整的翻译来替代原始的证明文件。如果发生了错误，请如实显示错误信息，而不是声称操作成功。请保持Markdown标题和JSON字段名称不变。超时时间为6秒，且只允许进行一次重试操作。"
+    }
+  ]
+}

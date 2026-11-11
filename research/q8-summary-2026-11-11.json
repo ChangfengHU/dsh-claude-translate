@@ -1,0 +1,147 @@
+{
+  "date": "2026-11-11",
+  "reviewMethod": "Source-by-source manual invariant review by the implementing agent; not blinded, not a standardized translation-quality benchmark; no price component.",
+  "summary": [
+    {
+      "model": "hy-mt-q8",
+      "samples": 8,
+      "medianFirstTextMs": 470,
+      "medianTotalMs": 710,
+      "hardInvariantPasses": 4,
+      "assessments": {
+        "daily": {
+          "pass": true,
+          "note": "Minor drift: three items becomes three categories of tasks."
+        },
+        "code-scope": {
+          "pass": false,
+          "note": "Loses the requirement to provide a plan first; 'Provide the solution as is' is not equivalent."
+        },
+        "clarification": {
+          "pass": true
+        },
+        "context-correction": {
+          "pass": true
+        },
+        "retry-count": {
+          "pass": false,
+          "note": "Three retries becomes three attempts, conflicting with four total attempts."
+        },
+        "markdown-json": {
+          "pass": false,
+          "note": "No booking/payment occurred becomes no booking/payment is needed, changing a factual status into advice."
+        },
+        "ordinary-answer": {
+          "pass": true,
+          "note": "Minor script inconsistency: one traditional-Chinese character sequence."
+        },
+        "long-technical": {
+          "pass": false,
+          "note": "Streaming as the answer arrives becomes displaying when ready; controlled qualifier on retry is lost."
+        }
+      }
+    },
+    {
+      "model": "qwen-flash",
+      "samples": 8,
+      "medianFirstTextMs": 420.5,
+      "medianTotalMs": 736,
+      "hardInvariantPasses": 7,
+      "assessments": {
+        "daily": {
+          "pass": false,
+          "note": "Answers the task in Chinese instead of translating the request into English."
+        },
+        "code-scope": {
+          "pass": true
+        },
+        "clarification": {
+          "pass": true
+        },
+        "context-correction": {
+          "pass": true
+        },
+        "retry-count": {
+          "pass": true
+        },
+        "markdown-json": {
+          "pass": true
+        },
+        "ordinary-answer": {
+          "pass": true
+        },
+        "long-technical": {
+          "pass": true
+        }
+      }
+    },
+    {
+      "model": "qwen-mt-flash",
+      "samples": 8,
+      "medianFirstTextMs": 350,
+      "medianTotalMs": 682,
+      "hardInvariantPasses": 7,
+      "assessments": {
+        "daily": {
+          "pass": true
+        },
+        "code-scope": {
+          "pass": false,
+          "note": "Reverses the containment relation: file within function instead of function within file, with common literal shielding."
+        },
+        "clarification": {
+          "pass": true
+        },
+        "context-correction": {
+          "pass": true
+        },
+        "retry-count": {
+          "pass": true
+        },
+        "markdown-json": {
+          "pass": true
+        },
+        "ordinary-answer": {
+          "pass": true
+        },
+        "long-technical": {
+          "pass": true
+        }
+      }
+    },
+    {
+      "model": "qwen-flash-current-contract",
+      "samples": 8,
+      "medianFirstTextMs": null,
+      "medianTotalMs": 1125.5,
+      "hardInvariantPasses": 7,
+      "assessments": {
+        "daily": {
+          "pass": true
+        },
+        "code-scope": {
+          "pass": false,
+          "note": "Reverses file/function containment despite successful JSON and literal validation."
+        },
+        "clarification": {
+          "pass": true
+        },
+        "context-correction": {
+          "pass": true
+        },
+        "retry-count": {
+          "pass": true
+        },
+        "markdown-json": {
+          "pass": true
+        },
+        "ordinary-answer": {
+          "pass": true
+        },
+        "long-technical": {
+          "pass": true
+        }
+      }
+    }
+  ]
+}
