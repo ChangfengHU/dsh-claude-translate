@@ -1,0 +1,18 @@
+[
+  {
+    "status": 200,
+    "input": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。",
+    "output": "It might rain tomorrow afternoon, please organize the preparations before going out into three items, and do not recommend hotels.",
+    "durationMs": 1068,
+    "requests": 1,
+    "cacheHits": 0
+  },
+  {
+    "status": 200,
+    "input": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。",
+    "output": "Only modify `verifySession()` within `src/auth.ts`; do not change the public interface; keep `/api/session` and `X-Request-ID` unchanged; first provide the plan, do not execute `git push`.",
+    "durationMs": 1605,
+    "requests": 1,
+    "cacheHits": 0
+  }
+]

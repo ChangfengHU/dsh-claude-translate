@@ -1,0 +1,440 @@
+{
+  "date": "2026-11-11",
+  "method": "Single concurrency; rotated order; four synthetic ordinary tasks; literal shielding; raw API translation, not end-to-end Claude latency; no model judge.",
+  "deepseekCatalog": [
+    "deepseek-flash",
+    "deepseek-v4-pro"
+  ],
+  "cases": [
+    {
+      "id": "daily-zh-en",
+      "direction": "en",
+      "source": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。"
+    },
+    {
+      "id": "constraints-zh-en",
+      "direction": "en",
+      "source": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。"
+    },
+    {
+      "id": "markdown-en-zh",
+      "direction": "zh",
+      "source": "## Result\nThe run completed in 1.25 seconds with 3 retries. Do not claim a booking or payment was made.\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```"
+    },
+    {
+      "id": "technical-en-zh",
+      "direction": "zh",
+      "source": "Validate the request before execution. If authorization expires, stop and ask the user to sign in again; never retry a payment automatically. Keep `requestId`, `status`, and `retryCount` unchanged. Stream the original answer as it arrives, and show a separate progress indicator while the Chinese version is prepared. Do not replace the original evidence with an incomplete translation. Display the actual error instead of claiming success. Keep the Markdown headings and the JSON field names unchanged. The timeout is 6 seconds and only one controlled retry is allowed."
+    }
+  ],
+  "results": [
+    {
+      "model": "qwen-flash",
+      "actualModel": "qwen-flash",
+      "caseId": "daily-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 830,
+      "firstTextMs": 831,
+      "totalMs": 990,
+      "chunks": 9,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "It might rain tomorrow afternoon. Please organize the preparations before going out into three items. Do not recommend hotels.",
+      "input": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-turbo",
+      "caseId": "daily-zh-en",
+      "status": 429,
+      "errorCode": "limit_requests",
+      "headersMs": 720
+    },
+    {
+      "model": "qwen-mt-flash",
+      "actualModel": "qwen-mt-flash",
+      "caseId": "daily-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 323,
+      "firstTextMs": 323,
+      "totalMs": 487,
+      "chunks": 9,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "It might rain tomorrow afternoon, so please summarize the pre-outing preparations into three items. Do not recommend hotels.",
+      "input": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-lite",
+      "actualModel": "qwen-mt-lite",
+      "caseId": "daily-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 388,
+      "firstTextMs": 388,
+      "totalMs": 546,
+      "chunks": 9,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "It might rain tomorrow afternoon. Please organize my preparations before leaving into three items, and don’t recommend any hotels.",
+      "input": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-plus",
+      "actualModel": "qwen-mt-plus",
+      "caseId": "daily-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 569,
+      "firstTextMs": 576,
+      "totalMs": 576,
+      "chunks": 1,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 49,
+        "completion_tokens": 24,
+        "total_tokens": 73
+      },
+      "output": "It might rain tomorrow afternoon. Please list three things I should prepare before going out, and do not recommend any hotels.",
+      "input": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。",
+      "nonStreaming": true
+    },
+    {
+      "model": "deepseek-flash",
+      "actualModel": "deepseek-flash",
+      "caseId": "daily-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 287,
+      "firstTextMs": 829,
+      "totalMs": 1058,
+      "chunks": 24,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 62,
+        "completion_tokens": 24,
+        "total_tokens": 86,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 62
+      },
+      "output": "It may rain tomorrow afternoon; help me organize the preparations before going out into three items, and do not recommend hotels.",
+      "input": "明天下午可能下雨，帮我把出门前的准备整理成三项，不要推荐酒店。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-turbo",
+      "caseId": "constraints-zh-en",
+      "status": 429,
+      "errorCode": "limit_requests",
+      "headersMs": 237
+    },
+    {
+      "model": "qwen-mt-flash",
+      "actualModel": "qwen-mt-flash",
+      "caseId": "constraints-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 401,
+      "firstTextMs": 402,
+      "totalMs": 942,
+      "chunks": 35,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "Only modify `verifySession()` within `src/auth.ts`; do not change the public interface. Retain `/api/session` and `X-Request-ID`, provide the solution first, and do not execute `git push`.",
+      "input": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-lite",
+      "actualModel": "qwen-mt-lite",
+      "caseId": "constraints-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 358,
+      "firstTextMs": 358,
+      "totalMs": 683,
+      "chunks": 35,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "Only modify `src/auth.ts` to include `verifySession()`; do not alter the public interfaces. Keep `/api/session` and `X-Request-ID`—provide them as a plan first, and do not execute `git push`.",
+      "input": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-plus",
+      "actualModel": "qwen-mt-plus",
+      "caseId": "constraints-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 1194,
+      "firstTextMs": 1195,
+      "totalMs": 1195,
+      "chunks": 1,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 135,
+        "completion_tokens": 113,
+        "total_tokens": 248
+      },
+      "output": "Only modify `verifySession()` within `src/auth.ts`; do not change the public interface. Keep `/api/session` and `X-Request-ID` as they are. Provide the solution first, but do not execute `git push` yet.",
+      "input": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。",
+      "nonStreaming": true
+    },
+    {
+      "model": "deepseek-flash",
+      "actualModel": "deepseek-flash",
+      "caseId": "constraints-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 296,
+      "firstTextMs": 684,
+      "totalMs": 1039,
+      "chunks": 98,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 140,
+        "completion_tokens": 98,
+        "total_tokens": 238,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 140
+      },
+      "output": "Only modify `verifySession()` in `src/auth.ts`, do not change the public interface; keep `/api/session` and `X-Request-ID`, give the plan first, do not execute `git push`.",
+      "input": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-flash",
+      "actualModel": "qwen-flash",
+      "caseId": "constraints-zh-en",
+      "direction": "en",
+      "status": 200,
+      "headersMs": 357,
+      "firstTextMs": 357,
+      "totalMs": 1090,
+      "chunks": 36,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "Only modify `src/auth.ts` within `verifySession()`, do not change the public interface; keep `/api/session` and `X-Request-ID` unchanged. First provide the solution, do not execute `git push`.",
+      "input": "只修改 `src/auth.ts` 中的 `verifySession()`，不要改变公开接口；保留 `/api/session` 和 `X-Request-ID`，先给方案，不要执行 `git push`。",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-flash",
+      "actualModel": "qwen-mt-flash",
+      "caseId": "markdown-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 325,
+      "firstTextMs": 325,
+      "totalMs": 585,
+      "chunks": 16,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "## 结果\n该运行在1.25秒内完成，重试了3次。请勿声称已进行预订或付款。\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "input": "## Result\nThe run completed in 1.25 seconds with 3 retries. Do not claim a booking or payment was made.\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-lite",
+      "actualModel": "qwen-mt-lite",
+      "caseId": "markdown-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 362,
+      "firstTextMs": 362,
+      "totalMs": 537,
+      "chunks": 16,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "## 结果\n本次跑动用时1.25秒，共进行了3次尝试。请勿声称已预订或已完成付款。\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "input": "## Result\nThe run completed in 1.25 seconds with 3 retries. Do not claim a booking or payment was made.\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-plus",
+      "actualModel": "qwen-mt-plus",
+      "caseId": "markdown-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 739,
+      "firstTextMs": 742,
+      "totalMs": 742,
+      "chunks": 1,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 80,
+        "completion_tokens": 50,
+        "total_tokens": 130
+      },
+      "output": "## 结果\n该运行在1.25秒内完成，重试了3次。请勿声称已成功预订或付款。\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "input": "## Result\nThe run completed in 1.25 seconds with 3 retries. Do not claim a booking or payment was made.\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "nonStreaming": true
+    },
+    {
+      "model": "deepseek-flash",
+      "actualModel": "deepseek-flash",
+      "caseId": "markdown-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 299,
+      "firstTextMs": 525,
+      "totalMs": 764,
+      "chunks": 48,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 90,
+        "completion_tokens": 48,
+        "total_tokens": 138,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 90
+      },
+      "output": "## 结果\n运行在 1.25 秒内完成，重试了 3 次。不要声称已完成预订或付款。\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "input": "## Result\nThe run completed in 1.25 seconds with 3 retries. Do not claim a booking or payment was made.\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-flash",
+      "actualModel": "qwen-flash",
+      "caseId": "markdown-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 382,
+      "firstTextMs": 383,
+      "totalMs": 759,
+      "chunks": 16,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "## 结果\n运行在 1.25 秒内完成，重试了 3 次。不要声称已预订或付款。\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "input": "## Result\nThe run completed in 1.25 seconds with 3 retries. Do not claim a booking or payment was made.\n\n```json\n{\"status\":\"ok\",\"path\":\"/api/session\"}\n```",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-turbo",
+      "caseId": "markdown-en-zh",
+      "status": 429,
+      "errorCode": "limit_requests",
+      "headersMs": 257
+    },
+    {
+      "model": "qwen-mt-lite",
+      "actualModel": "qwen-mt-lite",
+      "caseId": "technical-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 380,
+      "firstTextMs": 380,
+      "totalMs": 806,
+      "chunks": 42,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "在执行前验证请求。如果授权已过期，请停止操作并要求用户重新登录；切勿自动重试付款。请保持 `requestId`、`status` 和 `retryCount` 不变。在原始答案到达时直接流式传输，并在准备中文版本期间显示单独的进度指示器。请勿用不完整的翻译替换原始证据。请显示实际错误，而非声称成功。请保持 Markdown 标题和 JSON 字段名称不变。超时时间为 6 秒，且仅允许一次受控重试。",
+      "input": "Validate the request before execution. If authorization expires, stop and ask the user to sign in again; never retry a payment automatically. Keep `requestId`, `status`, and `retryCount` unchanged. Stream the original answer as it arrives, and show a separate progress indicator while the Chinese version is prepared. Do not replace the original evidence with an incomplete translation. Display the actual error instead of claiming success. Keep the Markdown headings and the JSON field names unchanged. The timeout is 6 seconds and only one controlled retry is allowed.",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-mt-plus",
+      "actualModel": "qwen-mt-plus",
+      "caseId": "technical-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 1502,
+      "firstTextMs": 1503,
+      "totalMs": 1503,
+      "chunks": 1,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 190,
+        "completion_tokens": 165,
+        "total_tokens": 355
+      },
+      "output": "在执行前验证请求。如果授权已过期，应停止并要求用户重新登录；切勿自动重试支付。保持 `requestId`、`status` 和 `retryCount` 不变。在原始答案到达时即刻流式输出，并在准备中文版本期间显示单独的进度指示器。不得用不完整的译文替换原始证据。应显示实际错误，而非声称成功。保留 Markdown 标题和 JSON 字段名不变。超时时间为 6 秒，且仅允许进行一次受控重试。",
+      "input": "Validate the request before execution. If authorization expires, stop and ask the user to sign in again; never retry a payment automatically. Keep `requestId`, `status`, and `retryCount` unchanged. Stream the original answer as it arrives, and show a separate progress indicator while the Chinese version is prepared. Do not replace the original evidence with an incomplete translation. Display the actual error instead of claiming success. Keep the Markdown headings and the JSON field names unchanged. The timeout is 6 seconds and only one controlled retry is allowed.",
+      "nonStreaming": true
+    },
+    {
+      "model": "deepseek-flash",
+      "actualModel": "deepseek-flash",
+      "caseId": "technical-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 277,
+      "firstTextMs": 1202,
+      "totalMs": 1845,
+      "chunks": 145,
+      "finishReason": "stop",
+      "literalPass": true,
+      "usage": {
+        "prompt_tokens": 196,
+        "completion_tokens": 145,
+        "total_tokens": 341,
+        "prompt_tokens_details": {
+          "cached_tokens": 0
+        },
+        "prompt_cache_hit_tokens": 0,
+        "prompt_cache_miss_tokens": 196
+      },
+      "output": "在执行前验证请求。如果授权过期，停止并请用户重新登录；绝不自动重试支付。保持 `requestId`、`status` 和 `retryCount` 不变。原始答案到达时即流式输出，并在准备中文版本时显示单独的进度指示器。不要用不完整的翻译替换原始证据。显示实际错误，而不是声称成功。保持 Markdown 标题和 JSON 字段名不变。超时为 6 秒，且只允许一次受控重试。",
+      "input": "Validate the request before execution. If authorization expires, stop and ask the user to sign in again; never retry a payment automatically. Keep `requestId`, `status`, and `retryCount` unchanged. Stream the original answer as it arrives, and show a separate progress indicator while the Chinese version is prepared. Do not replace the original evidence with an incomplete translation. Display the actual error instead of claiming success. Keep the Markdown headings and the JSON field names unchanged. The timeout is 6 seconds and only one controlled retry is allowed.",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-flash",
+      "actualModel": "qwen-flash",
+      "caseId": "technical-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 411,
+      "firstTextMs": 411,
+      "totalMs": 1427,
+      "chunks": 43,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "在执行前验证请求。如果授权已过期，请停止并要求用户重新登录；切勿自动重试支付。保持 `requestId`、`status` 和 `retryCount` 不变。在原始答案到达时实时流式传输，并在准备中文版本时显示单独的进度指示器。不要用不完整的翻译替换原始证据。显示实际错误，而非声称成功。保持 Markdown 标题和 JSON 字段名称不变。超时时间为 6 秒，仅允许一次受控重试。",
+      "input": "Validate the request before execution. If authorization expires, stop and ask the user to sign in again; never retry a payment automatically. Keep `requestId`, `status`, and `retryCount` unchanged. Stream the original answer as it arrives, and show a separate progress indicator while the Chinese version is prepared. Do not replace the original evidence with an incomplete translation. Display the actual error instead of claiming success. Keep the Markdown headings and the JSON field names unchanged. The timeout is 6 seconds and only one controlled retry is allowed.",
+      "nonStreaming": false
+    },
+    {
+      "model": "qwen-turbo",
+      "caseId": "technical-en-zh",
+      "status": 429,
+      "errorCode": "limit_requests",
+      "headersMs": 743
+    },
+    {
+      "model": "qwen-mt-flash",
+      "actualModel": "qwen-mt-flash",
+      "caseId": "technical-en-zh",
+      "direction": "zh",
+      "status": 200,
+      "headersMs": 326,
+      "firstTextMs": 326,
+      "totalMs": 1115,
+      "chunks": 46,
+      "finishReason": "stop",
+      "literalPass": true,
+      "output": "在执行前验证请求。如果授权已过期，应停止并提示用户重新登录；切勿自动重试付款。请保持 `requestId`、`status` 和 `retryCount` 不变。在收到原始答案时即开始流式传输，并在准备中文版本期间显示单独的进度指示器。请勿用不完整的译文替换原始证据。应显示实际错误信息，而非声称操作成功。请保持 Markdown 标题和 JSON 字段名不变。超时时间为 6 秒，且仅允许一次受控重试。",
+      "input": "Validate the request before execution. If authorization expires, stop and ask the user to sign in again; never retry a payment automatically. Keep `requestId`, `status`, and `retryCount` unchanged. Stream the original answer as it arrives, and show a separate progress indicator while the Chinese version is prepared. Do not replace the original evidence with an incomplete translation. Display the actual error instead of claiming success. Keep the Markdown headings and the JSON field names unchanged. The timeout is 6 seconds and only one controlled retry is allowed.",
+      "nonStreaming": false
+    }
+  ]
+}

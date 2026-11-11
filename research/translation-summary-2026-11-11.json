@@ -1,0 +1,60 @@
+{
+  "method": "Small synthetic pilot; semantic review by this assistant, not a human/COMET judge; raw API path; gate requires 4/4 semantic cases and incremental streaming.",
+  "rows": [
+    {
+      "model": "qwen-mt-flash",
+      "n": 4,
+      "firstMs": 325.5,
+      "totalMs": 763.5,
+      "semanticPassed": 4,
+      "streaming": true,
+      "costPerThousandEachCNY": 0.00265,
+      "realtimeEligible": true,
+      "pilotScore": 93
+    },
+    {
+      "model": "deepseek-flash",
+      "n": 4,
+      "firstMs": 756.5,
+      "totalMs": 1048.5,
+      "semanticPassed": 4,
+      "streaming": true,
+      "costPerThousandEachCNY": 0.01,
+      "realtimeEligible": true,
+      "pilotScore": 77
+    },
+    {
+      "model": "qwen-mt-plus",
+      "n": 4,
+      "firstMs": 968.5,
+      "totalMs": 968.5,
+      "semanticPassed": 4,
+      "streaming": false,
+      "costPerThousandEachCNY": 0.0072,
+      "realtimeEligible": false,
+      "pilotScore": null
+    },
+    {
+      "model": "qwen-flash",
+      "n": 4,
+      "firstMs": 397,
+      "totalMs": 1040,
+      "semanticPassed": 3,
+      "streaming": true,
+      "costPerThousandEachCNY": 0.00165,
+      "realtimeEligible": false,
+      "pilotScore": null
+    },
+    {
+      "model": "qwen-mt-lite",
+      "n": 4,
+      "firstMs": 371,
+      "totalMs": 614.5,
+      "semanticPassed": 2,
+      "streaming": true,
+      "costPerThousandEachCNY": 0.0022,
+      "realtimeEligible": false,
+      "pilotScore": null
+    }
+  ]
+}
