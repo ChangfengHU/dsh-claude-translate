@@ -4,12 +4,12 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const tick = (n = 30) => new Promise(resolve => setTimeout(resolve, n));
-async function client(fetch, open = false) {
+async function client(fetch, open = false, hooks) {
   let plugin;
   const react = {
     createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }),
     useState: value => [typeof value === 'function' ? value() : value === false ? open : value, () => {}],
-    useEffect() {}, useRef: () => ({ current: null }), useMemo: fn => fn(), useSyncExternalStore: (_fn, snapshot) => snapshot(),
+    useEffect() {}, useRef: value => hooks ? (hooks.refs[hooks.cursor++] ??= { current: value }) : ({ current: value }), useMemo: fn => fn(), useSyncExternalStore: (_fn, snapshot) => snapshot(),
   };
   const source = (await readFile(new URL('../client/index.js', import.meta.url), 'utf8')).replace("return { name: NS, inject: ['slots', 'locale'], apply };", "return { name: NS, inject: ['slots', 'locale'], apply, channel, TranslatedAssistant, CapturedUser };");
   vm.runInNewContext(source, { window: { __ModuleLoader__: { load: module => { plugin = module.factory(() => react); } } }, URL, URLSearchParams, AbortController, crypto, setTimeout, clearTimeout, setInterval, clearInterval, document: { hidden: false }, fetch });
@@ -19,7 +19,7 @@ const response = value => ({ ok: true, json: async () => ({ result: { ok: true, 
 function all(node, predicate) { const values = []; function visit(n) { if (!n || typeof n !== 'object') return; if (predicate(n)) values.push(n); for (const child of n.children ?? []) Array.isArray(child) ? child.forEach(visit) : visit(child); } visit(node); return values; }
 const texts = tree => all(tree, node => !!node.props?.node).flatMap(n => n.props.node.data.blocks.filter(b => b.kind === 'text').map(b => b.text));
 
-test('the pipeline stays visible during Claude first-token wait and moves without duplication', async () => {
+test('the pipeline stays anchored below the input throughout the run without duplication', async () => {
   for (const firstEnglishAt of [undefined, 3]) {
     const meta = { id: 'tr_wait', purpose: 'conversation', status: 'running', startedAt: 1, forwardedAt: 2, firstEnglishAt, inputIdentity: { seq: 4 }, position: { turn: 1, step: 0 }, revision: 'waiting' };
     const plugin = await client(async () => response({ runs: [meta], revision: 'one', enabled: true, presentation: { mode: 'en', layout: 'parallel' }, display: [] }));
@@ -27,8 +27,8 @@ test('the pipeline stays visible during Claude first-token wait and moves withou
     const user = plugin.CapturedUser({ baseEntry: { component: 'NativeUser' }, node: { data: { seq: 4 } }, sessionId: 'session-wait' });
     const assistant = plugin.TranslatedAssistant({ baseEntry: { component: 'Native' }, node: { data: { turn: 1, step: 0, blocks: [] } }, sessionId: 'session-wait' });
     const pipelines = tree => all(tree, n => typeof n.type === 'function' && n.type.name === 'Pipeline').length;
-    assert.equal(pipelines(user), firstEnglishAt ? 0 : 1);
-    assert.equal(pipelines(assistant), firstEnglishAt ? 1 : 0);
+    assert.equal(pipelines(user), 1);
+    assert.equal(pipelines(assistant), 0);
     disconnect(); bus.dispose();
   }
 });
@@ -90,4 +90,44 @@ test('an input preview is explicitly not sent and never masquerades as captured 
   const tree = plugin.CapturedUser({ baseEntry: { component: 'NativeUser' }, node: { data: { seq: 4 } }, sessionId: 'session-input' });
   const text = JSON.stringify(tree); assert.ok(text.includes('English preview · Not sent')); assert.ok(text.includes('Help me prepare.')); assert.ok(!text.includes('English sent to Claude'));
   disconnect(); bus.dispose();
+});
+
+test('input English is expanded by default and consumes real preview frames', async () => {
+  const meta = { id: 'tr_123', purpose: 'conversation', status: 'translating', inputIdentity: { seq: 4 }, revision: 'live' };
+  const plugin = await client(async () => response({ runs: [meta], revision: 'one', enabled: true, presentation: { mode: 'zh', layout: 'parallel' }, display: [{ ...meta, inputPreview: 'Prepare my meeting' }] }));
+  const bus = plugin.channel('session-open'), off = bus.connect(); await tick();
+  const tree = plugin.CapturedUser({ baseEntry: { component: 'NativeUser' }, node: { data: { seq: 4 } }, sessionId: 'session-open' });
+  assert.equal(all(tree, n => n.type === 'details')[0].props.open, true);
+  assert.match(JSON.stringify(tree), /Prepare my meeting/);
+  off(); bus.dispose();
+});
+
+test('Chinese Markdown stays in streaming mode after Claude has finished', async () => {
+  const meta = { id: 'tr_123', purpose: 'conversation', status: 'translating-output', displayStatus: 'pending', claudeMs: 20, position: { turn: 1, step: 0 }, revision: 'live' };
+  const plugin = await client(async () => response({ runs: [meta], revision: 'one', enabled: true, presentation: { mode: 'zh', layout: 'parallel' }, display: [{ ...meta, rawOutput: 'Captured real English.', outputPreview: '中文正在到达' }] }));
+  const bus = plugin.channel('session-native'), off = bus.connect(); await tick();
+  const tree = plugin.TranslatedAssistant({ baseEntry: { component: 'Native' }, node: { data: { turn: 1, step: 0, status: 'settled', blocks: [] } }, sessionId: 'session-native' });
+  const translated = all(tree, n => n.props?.node?.data.blocks.some(b => b.text === '中文正在到达'))[0];
+  assert.equal(translated.props.node.data.status, 'running');
+  assert.ok(texts(tree).includes('Captured real English.'));
+  off(); bus.dispose();
+});
+
+test('completion keeps the same layout and the live original remains open without auto collapse', async () => {
+  const hooks = { refs: [], cursor: 0 };
+  const meta = { id: 'tr_123', purpose: 'conversation', status: 'running', displayStatus: 'pending', inputIdentity: { seq: 4 }, position: { turn: 1, step: 0 }, revision: 'live' };
+  const display = { ...meta, outputPreview: '中文', rawOutput: 'Live English.' };
+  let revision = 0;
+  const plugin = await client(async () => response({ runs: [{ ...meta }], revision: String(++revision), enabled: true, presentation: { mode: 'zh', layout: 'parallel' }, display: [{ ...display }] }), false, hooks);
+  const bus = plugin.channel('session-stable'), off = bus.connect(); await tick();
+  const props = { baseEntry: { component: 'Native' }, node: { data: { turn: 1, step: 0, blocks: [{ kind: 'text', text: 'Live English.' }] } }, sessionId: 'session-stable' };
+  hooks.cursor = 0; const before = plugin.TranslatedAssistant(props);
+  meta.status = 'succeeded'; meta.displayStatus = 'ready'; meta.revision = 'done'; display.displayStatus = 'ready'; display.outputPreview = ''; display.translatedOutput = '完整中文';
+  bus.refresh(); await tick(); hooks.cursor = 0; const after = plugin.TranslatedAssistant(props);
+  for (const tree of [before, after]) {
+    assert.equal(all(tree, n => n.props?.className === 'dct-reply-grid').length, 0);
+    assert.equal(all(tree, n => n.props?.className === 'dct-reply-stack').length, 1);
+    assert.equal(all(tree, n => n.type === 'details')[0].props.open, true);
+  }
+  off(); bus.dispose();
 });

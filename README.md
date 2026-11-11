@@ -1,5 +1,15 @@
 # DSH Claude Translate
 
+### 0.3.6: Stable Streaming Layout
+
+Input English is expanded by default and prepared before background context,
+while dispatch still waits for all validation. Chinese keeps native streaming
+Markdown enabled after Claude finishes. Reply containers and the input-owned
+phase rail no longer move or change column count on completion. Live English
+uses a bounded preview that stays open until the reader closes it; completed
+history can still start collapsed. These are genuine provider updates, not a
+simulated typewriter effect. Offscreen historical inputs load lazily.
+
 ### 0.3.5: Live English, Progressive Chinese
 
 Claude's native English stream is visible immediately, including when Chinese is

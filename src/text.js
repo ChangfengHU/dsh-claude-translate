@@ -62,9 +62,9 @@ export class TextTranslator {
     signal?.throwIfAborted();
     if (!text.trim()) return text;
     const key = translationKey(text, direction, config);
-    if (this.cache.has(key)) { if (meter) meter.cacheHits++; return this.cache.get(key); }
+    if (this.cache.has(key)) { if (meter) meter.cacheHits++; onProgress?.(this.cache.get(key)); return this.cache.get(key); }
     const shield = protect(text, { quotedLiterals: direction === 'en' });
-    if (direction === 'en' && !HAN.test(shield.text)) return text;
+    if (direction === 'en' && !HAN.test(shield.text)) { onProgress?.(text); return text; }
     if (!shield.text.replace(/\bDSHT_[A-Za-z0-9_]+_END\b/g, '').trim()) return text;
     // Bounding each source prevents hidden truncation and unbounded translation cost.
     if (shield.text.length > 30000) throw failure('TRANSLATION_TOO_LARGE', 'A prose block exceeds 30,000 characters. Split it before calling Claude Code.');
@@ -127,7 +127,6 @@ export class TextTranslator {
 
 export async function translateRequest(options, translator, config, makeMessage, meter, onInputProgress) {
   const convert = value => translator.translate(value, 'en', config, options.signal, meter);
-  const system = `${await convert(options.system ?? '')}\n\n${ENGLISH_POLICY}`;
   let translatedBlocks = 0;
   async function content(blocks, live = false) {
     const output = [];
@@ -149,10 +148,13 @@ export async function translateRequest(options, translator, config, makeMessage,
   const messages = [];
   const mapping = [];
   const latestUser = options.messages.findLast(message => message.source?.kind === 'user');
+  // Prepare the visible request first, but dispatch nothing until context also validates.
+  const latestContent = latestUser ? await content(latestUser.content, true) : undefined;
+  const system = `${await convert(options.system ?? '')}\n\n${ENGLISH_POLICY}`;
   for (const original of options.messages) {
     const source = structuredClone(original.source);
     delete source.replayState;
-    const translated = makeMessage({ role: original.role, source, content: await content(original.content, original === latestUser) });
+    const translated = makeMessage({ role: original.role, source, content: original === latestUser ? latestContent : await content(original.content) });
     messages.push(translated);
     mapping.push({ originalId: original.id, forwardedId: translated.id });
   }

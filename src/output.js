@@ -33,6 +33,7 @@ export class OutputTranslation {
         try {
           const translated = await this.translator.translate(source, 'zh', this.config, this.controller.signal, this.run.meter, preview => {
             if (this.stopped || !this.run.rawOutput.startsWith(source)) return;
+            if (preview && preview.length < this.run.translatedOutput.length) return;
             this.run.outputPreview = redact(preview);
             if (preview) this.run.firstChineseAt ??= Date.now();
             this.changed();

@@ -229,6 +229,7 @@ window.__ModuleLoader__.load({
 .dct-controls{position:relative;flex:0 0 auto;min-width:0;font:inherit;font-size:12px;letter-spacing:0}.dct-controls summary{cursor:pointer;display:flex;align-items:center;gap:6px;height:30px;width:124px;padding:3px 6px;list-style:none;white-space:nowrap;color:var(--dsw-alias-label-secondary,#77808b);border-radius:5px}.dct-controls summary::-webkit-details-marker{display:none}.dct-controls summary:hover,.dct-controls[open] summary{background:var(--dsw-alias-markdown-code-block,#f3f5f8)}.dct-control-dot{width:5px;height:5px;border-radius:50%;background:#a1a7af;flex:none}.dct-control-dot[data-enabled=true]{background:#59937b}.dct-control-language{font-size:10px;margin-left:auto;color:var(--dsw-alias-label-primary,#343b46)}.dct-control-panel{position:absolute;bottom:calc(100% + 10px);left:auto;right:0;width:252px;max-width:calc(100vw - 32px);padding:14px;display:grid;gap:12px;background:var(--dsw-alias-bg-primary,#fff);border:1px solid var(--dsw-alias-border-l2,#e2e5ea);border-radius:8px;box-shadow:0 8px 28px #0002;z-index:100}.dct-control-panel label{display:grid;gap:6px;font-size:12px}.dct-control-panel .dct-control-switch{display:flex;align-items:center;gap:8px}.dct-controls input{accent-color:#4e6cc9}.dct-controls select{width:100%;font:inherit;color:inherit;background:var(--dsw-alias-bg-primary,#fff);border:1px solid var(--dsw-alias-border-l2,#e2e5ea);border-radius:5px;padding:6px}.dct-controls :focus-visible{outline:2px solid #5b76d4;outline-offset:2px}.dct-controls [role=alert]{color:#b45b50;font-size:11px;overflow-wrap:anywhere}
 .dct-test{max-width:720px;border-top:1px solid var(--dsw-alias-border-l2,#e2e5ea);padding:16px 0;display:grid;gap:10px}.dct-test h3{font-size:14px;margin:0}.dct-test>label{font-size:12px}.dct-test textarea{width:100%;border:1px solid var(--dsw-alias-border-l2,#d5dde4);background:var(--dsw-alias-bg-primary,#fff);color:inherit;padding:9px;border-radius:5px;font:inherit;resize:vertical;min-height:76px}.dct-test-result{border-left:2px solid #84af9b;padding:6px 12px}.dct-inline select{flex:1;min-width:0}.dct-test-result pre{max-height:300px;overflow:auto}
 .dct-settings{display:grid;grid-template-columns:minmax(280px,420px) minmax(0,1fr);gap:28px;width:100%;align-items:start}.dct-config{min-width:0}.dct-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:34px;margin-bottom:14px}.dct-section-head h3{font-size:14px;font-weight:600;margin:0}.dct-settings .dct-form{max-width:none;grid-template-columns:112px minmax(0,1fr);gap:14px 12px;padding:0;align-items:center}.dct-settings .dct-form>.dct-toggle{grid-column:1/-1}.dct-settings{padding-bottom:150px}.dct-settings .dct-form>label:not(.dct-toggle){margin-top:0;font-size:12px;color:var(--dsw-alias-label-secondary,#77808b)}.dct-setting-check{margin-top:12px}.dct-advanced{border-top:1px solid var(--dsw-alias-border-l2,#e5e8ed);margin-top:16px;padding-top:6px}.dct-advanced summary{font-size:12px;cursor:pointer;padding:6px 0;color:var(--dsw-alias-label-secondary,#77808b)}.dct-advanced .dct-form{padding:8px 0 14px}.dct-config-actions{display:flex;gap:12px;align-items:center;justify-content:flex-end;margin-top:14px}.dct-config-actions .dct-feedback{margin-right:auto;padding:0}.dct-settings .dct-test{max-width:none;margin:0;border-top:0;border-left:1px solid var(--dsw-alias-border-l2,#e5e8ed);padding:0 0 0 28px;gap:10px}.dct-test .dct-section-head{margin-bottom:2px}.dct-output-head{display:flex;gap:10px;align-items:center;margin-top:8px;font-size:12px}.dct-output-head .dct-muted{margin-left:auto}.dct-test-empty{min-height:144px;display:grid;place-content:center;color:var(--dsw-alias-label-secondary,#8b939e);font-size:12px;border-top:1px solid var(--dsw-alias-border-l2,#e5e8ed)}.dct-user{min-width:0}.dct-input-english{max-width:760px;margin:4px 0 16px auto;font-size:12px;color:var(--dsw-alias-label-secondary,#77808b)}.dct-input-english summary{cursor:pointer;list-style-position:inside;text-align:right;padding:4px 0}.dct-input-body{border-left:2px solid var(--dsw-alias-border-l2,#dce3eb);padding:8px 12px;margin-top:5px}.dct-input-meta{display:flex;align-items:center;justify-content:space-between;font-size:11px;margin-bottom:5px}.dct-input-body pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;font-size:13px;line-height:1.7;margin:0;color:var(--dsw-alias-label-primary,#303742);max-height:240px;overflow:auto}.dct-input-body .dct-icon,.dct-output-head .dct-icon{border:0;background:transparent;color:inherit;cursor:pointer;font-size:15px;padding:0 4px}
+.dct-english-scroll{height:144px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;overflow-anchor:none;padding:4px 8px 4px 0}.dct-reply-stack{display:flex;flex-direction:column;gap:14px;min-width:0}.dct-reply-stack .dct-original{margin:0;padding:0 0 10px;border-top:0;border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ed)}.dct-chinese-stream{min-height:104px;overflow-wrap:anywhere}.dct-chinese-stream .dct-draft-label{min-height:15px}.dct-reply .dct-pending{min-height:48px}.dct-input-body{min-height:72px}.dct-input-body pre{transition:none}
 @container(max-width:480px){.dct-settings .dct-form{grid-template-columns:minmax(0,1fr);gap:7px}.dct-settings .dct-form>label:not(.dct-toggle){margin-top:8px}}
 @container(max-width:840px){.dct-settings{grid-template-columns:minmax(0,1fr);gap:22px}.dct-settings .dct-test{border-left:0;border-top:1px solid var(--dsw-alias-border-l2,#e5e8ed);padding:16px 0 0}}
 .dct-reply{min-width:0;width:100%;letter-spacing:0;container-type:inline-size}.dct-reply-head{display:flex;gap:10px;align-items:center;margin:4px 0 9px;font-size:11px;line-height:22px;color:var(--dsw-alias-label-secondary,#828a98)}.dct-reply-head button{border:0;background:transparent;color:inherit;font:inherit;padding:0 3px;cursor:pointer}.dct-reply-head button:hover{color:#4965c5}.dct-reply-grid{display:grid;gap:20px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.dct-reply[data-layout=stacked] .dct-reply-grid{grid-template-columns:minmax(0,1fr);gap:16px}.dct-language{font-size:11px;font-weight:550;color:var(--dsw-alias-label-secondary,#828a98);padding-bottom:7px;margin-bottom:10px;border-bottom:1px solid var(--dsw-alias-border-l2,#e4e7ed)}.dct-language[data-lang=zh]{border-color:#83b8a3;color:#3d8068}.dct-language[data-lang=en]{border-color:#a0b2d5;color:#617cae}.dct-reply-pane{min-width:0;overflow-wrap:anywhere}.dct-reply details{border-top:1px solid var(--dsw-alias-border-l2,#e4e7ed);margin-top:14px;padding-top:8px}.dct-reply summary{cursor:pointer;font-size:12px;color:var(--dsw-alias-label-secondary,#7b8491);padding:4px 0}.dct-pending{color:var(--dsw-alias-label-secondary,#7b8491);font-size:13px;padding:8px 0}.dct-reply-error{border-left:2px solid #b87967;padding:5px 10px;margin:6px 0 10px;font-size:12px;color:#a26453}
@@ -282,28 +283,35 @@ window.__ModuleLoader__.load({
     }
     function CapturedUser({ baseEntry, originalT, ...props }) {
       const { node, sessionId } = props;
-      const [bus, state] = useChannel(sessionId), [open, setOpen] = useState(false);
+      const [bus, state] = useChannel(sessionId), [open, setOpen] = useState(true);
+      const ref = useRef(null), [visible, setVisible] = useState(false);
       const meta = state.inputRuns.get(node.data.seq);
-      useEffect(() => open && meta ? bus.watch(meta.id) : undefined, [bus, open, meta?.id, meta?.revision]);
+      const active = meta && ['translating', 'running', 'translating-output'].includes(meta.status);
+      useEffect(() => {
+        if (!ref.current) return;
+        const observer = new IntersectionObserver(entries => { for (const entry of entries) setVisible(entry.isIntersecting); }, { rootMargin: '200px' });
+        observer.observe(ref.current); return () => observer.disconnect();
+      }, []);
+      useEffect(() => open && meta && (visible || active) ? bus.watch(meta.id) : undefined, [bus, open, visible, active, meta?.id, meta?.revision]);
       const run = meta && bus.detail(meta.id);
       const original = h(baseEntry.component, { ...props, t: originalT });
-      if (!meta) return original;
+      if (!meta) return h('div', { ref, className: 'dct-user' }, original);
       const forwarded = !!meta.forwardedAt;
       const stopped = ['failed', 'cancelled'].includes(meta.status) && !forwarded;
-      return h('div', { className: 'dct-user' }, original,
+      return h('div', { ref, className: 'dct-user' }, original,
         h('details', { className: 'dct-input-english', open, 'data-input-seq': node.data.seq, onToggle: e => setOpen(e.currentTarget.open) },
           h('summary', null, forwarded ? 'English sent to Claude' : stopped ? 'English input · Not sent' : 'English input · Translating'),
           open ? h('div', { className: 'dct-input-body' },
             forwarded && run?.forwardedInput ? h(React.Fragment, null, h('div', { className: 'dct-input-meta' }, h('span', null, 'Forwarded English'), h(Copy, { text: run.forwardedInput })), h('pre', { lang: 'en' }, run.forwardedInput)) :
               !forwarded && run?.inputPreview ? h(React.Fragment, null, h('div', { className: 'dct-input-meta' }, 'English preview · Not sent'), h('pre', { lang: 'en' }, run.inputPreview)) :
                 h('div', { className: 'dct-muted', role: 'status' }, stopped ? 'Input translation failed. Claude was not called.' : forwarded ? 'Loading captured English…' : 'Translating input…')) : null),
-        !forwarded || (!meta.firstEnglishAt && meta.claudeMs === undefined) ? h(Pipeline, { run: meta }) : null);
+        h(Pipeline, { run: meta }));
     }
 
     const channels = new Map();
     function channel(sessionId) {
       if (channels.has(sessionId)) return channels.get(sessionId);
-      const listeners = new Set(), wanted = new Set(), details = new Map();
+      const listeners = new Set(), wanted = new Map(), details = new Map();
       let snapshot = { runs: [], inputRuns: new Map(), presentation: { mode: 'zh', layout: 'parallel' }, enabled: false, loaded: false };
       let timer, batchTimer, refs = 0, busy = false, stopped = false, revision = '', pendingConfig = 0, configEpoch = 0;
       let abort = new AbortController(), pollAbort, pollEpoch = 0, watchRevision, forceChat = false, errors = 0;
@@ -367,7 +375,7 @@ window.__ModuleLoader__.load({
         getSnapshot: () => snapshot,
         subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
         connect() { refs++; stopped = false; if (abort.signal.aborted) abort = new AbortController(); if (refs === 1) document.addEventListener?.('visibilitychange', visibility); poll(); return () => { refs--; if (!refs) { pollEpoch++; busy = false; abort.abort(); pollAbort?.abort(); clearTimeout(timer); clearTimeout(batchTimer); document.removeEventListener?.('visibilitychange', visibility); } }; },
-        watch(id) { wanted.add(id); scheduleBatch(); return () => wanted.delete(id); },
+        watch(id) { wanted.set(id, (wanted.get(id) ?? 0) + 1); scheduleBatch(); let released = false; return () => { if (released) return; released = true; const count = wanted.get(id) ?? 0; if (count > 1) wanted.set(id, count - 1); else wanted.delete(id); }; },
         detail: id => details.get(id),
         refresh,
         async preference(preference) { const previous = snapshot.presentation; pendingConfig++; configEpoch++; emit({ presentation: preference }); try { await api('/presentation', { sessionId, presentation: preference }); } catch (e) { emit({ presentation: previous }); throw e; } finally { pendingConfig--; revision = ''; refresh(); } },
@@ -396,7 +404,7 @@ window.__ModuleLoader__.load({
       }, []);
       async function save(fn) { setBusy(true); setError(''); try { await fn(); } catch (e) { setError(e.message); } finally { setBusy(false); } }
       const language = { zh: 'ZH', en: 'EN', bilingual: 'ZH + EN' }[state.presentation.mode];
-      return h('details', { ref: root, className: 'dct-controls', 'data-translate-controls': '0.3.5', onKeyDown: e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } } },
+      return h('details', { ref: root, className: 'dct-controls', 'data-translate-controls': '0.3.6', onKeyDown: e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } } },
         h('summary', { title: 'Translation options', 'aria-label': 'Translation options' }, h('span', { className: 'dct-control-dot', 'data-enabled': state.enabled }), 'Translate', h('span', { className: 'dct-control-language' }, state.enabled ? language : 'Off')),
         h('div', { className: 'dct-control-panel', role: 'dialog', 'aria-label': 'Translation options' },
           h('label', { className: 'dct-control-switch' }, h('input', { type: 'checkbox', checked: state.enabled, disabled: busy || !state.loaded, onChange: () => save(() => bus.toggle()) }), 'Enabled'),
@@ -406,14 +414,15 @@ window.__ModuleLoader__.load({
             h('option', { value: 'parallel' }, 'Side by side'), h('option', { value: 'stacked' }, 'Stacked'), h('option', { value: 'collapsed' }, 'Chinese + collapsed English'))) : null,
           error || state.error ? h('span', { role: 'alert' }, error || state.error) : null));
     }
-    function projectText(node, text, { textOnly = false, omitText = false } = {}) {
+    function projectText(node, text, { textOnly = false, omitText = false, streaming } = {}) {
       let inserted = false;
       const blocks = node.data.blocks.flatMap(block => {
         if (block.kind !== 'text') return textOnly ? [] : [block];
         if (omitText || inserted) return [];
         inserted = true; return [{ ...block, text }];
       });
-      return { ...node, data: { ...node.data, blocks } };
+      if (!inserted && !omitText && text) blocks.push({ kind: 'text', text });
+      return { ...node, data: { ...node.data, ...(streaming === undefined ? {} : { status: streaming ? 'running' : node.data.status }), blocks } };
     }
     function Pipeline({ run }) {
       const [now, setNow] = useState(Date.now);
@@ -430,10 +439,19 @@ window.__ModuleLoader__.load({
       ];
       return h('ol', { className: 'dct-pipeline', 'aria-label': 'Translation processing', 'data-active': active }, ...phases.map(([name, state, label, duration]) => h('li', { key: name, 'data-state': state, title: name + ': ' + label }, h('span', { className: 'dct-pipeline-dot', 'aria-hidden': true }), h('span', { className: 'dct-pipeline-label' }, h('strong', null, name), h('span', null, label)), h('time', null, duration))));
     }
+    function EnglishPreview({ text, children }) {
+      const ref = useRef(null), following = useRef(true);
+      (React.useLayoutEffect ?? useEffect)(() => {
+        const el = ref.current;
+        if (el && following.current) el.scrollTop = el.scrollHeight;
+      }, [text]);
+      return h('div', { ref, className: 'dct-english-scroll', onScroll: e => { const el = e.currentTarget; following.current = el.scrollHeight - el.clientHeight - el.scrollTop < 32; } }, children);
+    }
     function TranslatedAssistant({ baseEntry, originalT, ...props }) {
       const { node, sessionId } = props;
       const [bus, state] = useChannel(sessionId);
-      const ref = useRef(null), [visible, setVisible] = useState(false);
+      const ref = useRef(null), observedLive = useRef(false);
+      const [visible, setVisible] = useState(false), [englishOpen, setEnglishOpen] = useState(null);
       useEffect(() => {
         if (!ref.current) return;
         const observer = new IntersectionObserver(entries => { for (const entry of entries) setVisible(entry.isIntersecting); }, { rootMargin: '200px' });
@@ -444,27 +462,30 @@ window.__ModuleLoader__.load({
       const run = meta && bus.detail(meta.id);
       const base = (projected = node) => h(baseEntry.component, { ...props, t: originalT, node: projected });
       if (!meta) return h('div', { ref, 'data-dct-original': true }, base());
-      const pipeline = meta.firstEnglishAt || meta.claudeMs !== undefined || !meta.inputIdentity ? h(Pipeline, { run: meta }) : null;
-      if (state.presentation.mode === 'en' || meta.translateOutput === false) return h('div', { ref, 'data-dct-original': true }, pipeline, base());
-      const raw = node.data.blocks.filter(b => b.kind === 'text').map(b => b.text).join('\n\n');
-      if (!raw) return h('div', { ref }, pipeline, base());
-      const zh = run?.outputPreview || run?.translatedOutput;
+      const pipeline = !meta.inputIdentity ? h(Pipeline, { run: meta }) : null;
+      const nativeRaw = node.data.blocks.filter(b => b.kind === 'text').map(b => b.text).join('\n\n');
+      const raw = run?.rawOutput || nativeRaw;
+      if (state.presentation.mode === 'en' || meta.translateOutput === false) return h('div', { ref, 'data-dct-original': true }, pipeline, base(projectText(node, raw)));
+      const zh = run?.outputPreview || run?.translatedOutput || '';
       const failed = ['failed', 'interrupted', 'unavailable'].includes(run?.displayStatus ?? meta.displayStatus);
-      const bilingual = state.presentation.mode === 'bilingual';
       const complete = (run?.displayStatus ?? meta.displayStatus) === 'ready';
       const live = !complete && !failed;
-      const primary = zh ? base(projectText(node, zh, { textOnly: true })) : null;
-      const english = () => base(projectText(node, raw, { textOnly: true }));
-      const languagePane = (lang, content) => h('section', { className: 'dct-reply-pane', lang: lang === 'zh' ? 'zh-CN' : 'en' }, h('div', { className: 'dct-language', 'data-lang': lang }, lang === 'zh' ? 'Chinese' : 'English'), content);
-      const chinese = h(React.Fragment, null, primary, !zh ? h('div', { className: 'dct-pending', role: 'status' }, failed ? 'Chinese translation unavailable' : complete ? 'Loading Chinese response…' : meta.firstEnglishAt ? 'Preparing Chinese…' : 'Waiting for Claude…') : !complete ? h('div', { className: 'dct-draft-label' }, failed ? 'Partial translation' : 'Chinese · Streaming') : null);
+      if (live) observedLive.current = true;
+      const primary = base(projectText(node, zh, { textOnly: true, streaming: live }));
+      const english = () => base(projectText(node, raw, { textOnly: true, streaming: meta.claudeMs === undefined }));
+      const languagePane = (lang, content) => h('section', { key: lang, className: 'dct-reply-pane', lang: lang === 'zh' ? 'zh-CN' : 'en' }, h('div', { className: 'dct-language', 'data-lang': lang }, lang === 'zh' ? 'Chinese' : 'English'), content);
+      const chinese = h('div', { className: 'dct-chinese-stream', 'aria-busy': live },
+        primary, !zh ? h('div', { className: 'dct-pending', role: 'status' }, failed ? 'Chinese translation unavailable' : complete ? 'Loading Chinese response…' : meta.firstEnglishAt ? 'Preparing Chinese…' : 'Waiting for Claude…') : null,
+        h('div', { className: 'dct-draft-label' }, failed ? 'Partial translation' : complete ? 'Complete' : zh ? 'Chinese · Streaming' : 'Waiting'));
       const mode = state.presentation.mode, layout = state.presentation.layout;
+      const disclosure = h('details', { key: 'english', className: 'dct-original', open: englishOpen ?? (failed || observedLive.current || undefined), onToggle: e => setEnglishOpen(e.currentTarget.open) },
+        h('summary', null, 'English · Original response'), h(EnglishPreview, { text: raw }, english()));
       return h('div', { ref, className: 'dct-reply', 'data-mode': mode, 'data-layout': layout, 'data-live': live, 'data-run': meta.id },
         pipeline, base(projectText(node, '', { omitText: true })),
-        h('div', { className: 'dct-reply-head' }, h('span', null, mode === 'zh' ? complete ? 'Chinese' : 'English live · Chinese in progress' : 'Bilingual'), zh ? h(Copy, { text: zh }) : null),
+        h('div', { className: 'dct-reply-head' }, h('span', null, mode === 'zh' ? 'Chinese' : 'Bilingual'), h(Copy, { text: zh })),
         failed ? h('div', { className: 'dct-reply-error', role: 'alert' }, 'Chinese translation did not complete. The original English response is retained.') : null,
         mode === 'bilingual' && layout !== 'collapsed' ? h('div', { className: 'dct-reply-grid' }, languagePane('zh', chinese), languagePane('en', english())) :
-          live && mode === 'zh' ? h('div', { className: 'dct-reply-grid' }, languagePane('en', english()), languagePane('zh', chinese)) :
-            h(React.Fragment, null, chinese, h('details', { open: live || failed || undefined }, h('summary', null, 'English · Original response'), english())));
+          h('div', { className: 'dct-reply-stack' }, mode === 'zh' ? disclosure : null, h('section', { key: 'chinese', lang: 'zh-CN' }, chinese), mode !== 'zh' ? disclosure : null));
     }
 
     function apply(ctx) {

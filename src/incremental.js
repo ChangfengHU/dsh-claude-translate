@@ -25,10 +25,15 @@ export function translationPieces(text, direction) {
 // Partial records are display-only. The complete response still passes the strict contract.
 export function translationPreview(raw, pieces, cached, shield, direction) {
   try {
-    const value = parse(raw.replace(/^```(?:json)?\s*\n/u, ''), Allow.OBJ | Allow.ARR | Allow.STR);
+    const clean = raw.replace(/^```(?:json)?\s*\n/u, '');
+    const value = parse(clean, Allow.OBJ | Allow.ARR | Allow.STR);
     if (!Array.isArray(value.translations)) return '';
+    const closed = parse(clean, Allow.OBJ | Allow.ARR);
+    const complete = new Set([...cached.keys(), ...(closed.translations ?? []).filter(row => typeof row.text === 'string').map(row => row.id)]);
     const rows = new Map(cached);
-    for (const row of value.translations) {
+    for (const [index, row] of value.translations.entries()) {
+      // An unfinished next record must not erase already received prose.
+      if (typeof row.text !== 'string' && index === value.translations.length - 1) break;
       if (!pieces.some(p => p.id === row.id && p.translate) || rows.has(row.id) || typeof row.text !== 'string') return '';
       if (direction === 'en' && /\p{Script=Han}/u.test(row.text)) return '';
       rows.set(row.id, row.text);
@@ -38,6 +43,7 @@ export function translationPreview(raw, pieces, cached, shield, direction) {
       if (!piece.translate) { prefix += piece.text; continue; }
       if (!rows.has(piece.id)) break;
       prefix += (piece.text.match(/^\s*/u)?.[0] ?? '') + rows.get(piece.id) + (piece.text.match(/\s*$/u)?.[0] ?? '');
+      if (!complete.has(piece.id)) break;
     }
     return shield.preview(prefix);
   } catch { return ''; }

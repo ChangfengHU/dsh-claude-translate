@@ -8,7 +8,20 @@ import { createExecutor } from '../src/provider.js';
 import { Store } from '../src/store.js';
 import { createRpcHandler } from '../src/rpc.js';
 import { OutputTranslation } from '../src/output.js';
-import { stablePrefix, translationPieces } from '../src/incremental.js';
+import { stablePrefix, translationPieces, translationPreview } from '../src/incremental.js';
+
+test('each JSON token extends the preview instead of clearing it at the next segment header', () => {
+  const source = '## First\n\n1. **One**\n2. **Two**\n';
+  const shield = protect(source), pieces = translationPieces(shield.text, 'zh');
+  const raw = JSON.stringify({ translations: pieces.filter(p => p.translate).map(p => ({ id: p.id, text: ({ First: '第一段', One: '第一项', Two: '第二项' })[p.text] })) });
+  let previous = '';
+  for (let i = 1; i <= raw.length; i++) {
+    const preview = translationPreview(raw.slice(0, i), pieces, new Map(), shield, 'zh');
+    assert.ok(preview.startsWith(previous), 'preview regressed at JSON position ' + i);
+    previous = preview;
+  }
+  assert.equal(previous, '## 第一段\n\n1. **第一项**\n2. **第二项**\n');
+});
 
 test('Markdown structure is never handed to the output translator as prose', async () => {
   const source = '## Before departure\n\n1. **Check weather** and pack an umbrella.\n2. Bring your card.\n3. Keep `client.json` unchanged.\n\n> Arrive early.\n';
@@ -76,6 +89,18 @@ test('only the latest user input supplies an English preview, not system or prio
   const messages = ['之前的话。', '现在的问题。'].map((text, i) => ({ id: String(i), role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text }] }));
   await translateRequest({ system: '系统规则。', messages }, translator, config, value => value, undefined, value => previews.push(value));
   assert.equal(previews.length, 1); assert.equal(previews[0], 'Translated input.');
+});
+
+test('latest input streams before context translation but is not dispatched while context is invalid', async () => {
+  const order = [], previews = [];
+  const translator = new TextTranslator(async ({ text, onProgress }) => {
+    const { segments } = JSON.parse(text); order.push(segments.map(s => s.text).join(''));
+    if (segments.some(s => s.text.includes('系统'))) throw new Error('Context unavailable');
+    const output = JSON.stringify({ translations: segments.map(s => ({ id: s.id, text: 'Prepare for my meeting.' })) });
+    onProgress?.(output.slice(0, -5)); return output;
+  });
+  await assert.rejects(translateRequest({ system: '系统规则。', messages: [{ id: 'u1', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '准备会议。' }] }] }, translator, config, x => x, undefined, p => previews.push(p)), /Context unavailable/);
+  assert.equal(order[0], '准备会议。'); assert.ok(previews.some(x => x.includes('Prepare')));
 });
 
 test('API SSE preserves UTF-8 across arbitrary byte splits and emits before the terminal record', async () => {
