@@ -1,6 +1,6 @@
 {
   "name": "dsh-claude-translate",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Use local Claude Code seamlessly in DSH with Chinese-English translation, local Codex or Qwen/DeepSeek keys, and a truthful bilingual timeline.",
   "type": "module",
   "main": "src/index.js",

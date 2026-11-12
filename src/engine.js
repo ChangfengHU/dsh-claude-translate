@@ -3,6 +3,7 @@ import { TextTranslator, translateRequest, snapshotRequest, hash, failure, redac
 import { claudeRoutes, validateSelection } from './catalog.js';
 import { lastUserText } from './presentation.js';
 import { OutputTranslation } from './output.js';
+import { translationPolicy } from './policy.js';
 
 export class TranslationEngine {
   constructor({ store, execute, makeMessage, dispatch, catalog, position = () => undefined, inputIdentity = () => undefined }) {
@@ -59,7 +60,7 @@ export class TranslationEngine {
   enabled(options) {
     const c = this.store.config;
     const targets = this.catalog ? claudeRoutes(this.catalog.listProviders()) : c.targetProviders;
-    return !this.nested.has(options) && targets.includes(options.provider) && (c.sessions[options.sessionId] ?? c.enabled);
+    return !this.nested.has(options) && translationPolicy(options.provider, targets).enabled;
   }
   async *stream(options, next) {
     if (!this.enabled(options)) { yield* next(); return; }

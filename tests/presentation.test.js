@@ -94,7 +94,7 @@ test('long conversation client fetches metadata once and only visible reply text
     assert.equal(calls.length, 2); assert.equal(calls[1].payload.ids, 'tr_9'); assert.equal(bus.detail('tr_9').translatedOutput, '九件事'); unwatch();
   } finally { disconnect(); bus.dispose(); }
 });
-test('a stale metadata poll cannot overwrite a newly saved language or enable toggle', async () => {
+test('a stale metadata poll cannot overwrite a newly saved response language', async () => {
   let plugin, release;
   const response = value => ({ ok: true, json: async () => ({ result: { ok: true, value } }) });
   const source = (await readFile(new URL('../client/index.js', import.meta.url), 'utf8')).replace("return { name: NS, inject: ['slots', 'locale'], apply };", "return { name: NS, inject: ['slots', 'locale'], apply, channel };");
@@ -105,7 +105,7 @@ test('a stale metadata poll cannot overwrite a newly saved language or enable to
   });
   const bus = plugin.channel('session-race'); const disconnect = bus.connect();
   try {
-    await bus.toggle(); await bus.preference({ mode: 'bilingual', layout: 'stacked' }); release();
-    await new Promise(r => setTimeout(r, 10)); assert.equal(bus.getSnapshot().enabled, true); assert.equal(bus.getSnapshot().presentation.mode, 'bilingual');
+    await bus.preference({ mode: 'bilingual', layout: 'stacked' }); release();
+    await new Promise(r => setTimeout(r, 10)); assert.equal(bus.getSnapshot().presentation.mode, 'bilingual');
   } finally { disconnect(); bus.dispose(); }
 });

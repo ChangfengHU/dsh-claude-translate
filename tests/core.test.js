@@ -123,13 +123,20 @@ test('output translation failure does not discard a successful Claude answer', a
   await engine.idle();
   const [run] = await store.list('session-test'); assert.equal(run.status, 'partial'); assert.equal(run.rawOutput, 'Hello.');
 });
-test('other model routes and disabled sessions are untouched', async t => {
+test('other model routes stay untouched even with stale enabled session settings', async t => {
   const store = await fixture(t); let called = 0;
   const engine = new TranslationEngine({ store, makeMessage, execute: () => { throw Error('unexpected'); }, dispatch: () => { throw Error('unexpected'); } });
   await collect(engine.stream({ ...request(), provider: 'qwen' }, () => { called++; return englishReply(); }));
-  await store.saveConfig({ sessions: { 'session-test': false } });
-  await collect(engine.stream(request(), () => { called++; return englishReply(); }));
-  assert.equal(called, 2); assert.deepEqual(await store.list('session-test'), []);
+  await store.saveConfig({ sessions: { 'session-test': true } });
+  for (const provider of ['codex-local', 'deepseek']) await collect(engine.stream({ ...request(), provider }, () => { called++; return englishReply(); }));
+  assert.equal(called, 3); assert.deepEqual(await store.list('session-test'), []);
+});
+test('Claude input still translates when legacy global and session toggles are off', async t => {
+  const store = await fixture(t); let dispatched = 0;
+  await store.saveConfig({ enabled: false, sessions: { 'session-test': false } });
+  const engine = new TranslationEngine({ store, execute, makeMessage, dispatch: options => { dispatched++; assert.equal(options.messages[0].content[0].text, 'Hello'); return englishReply(); } });
+  await collect(engine.stream(request(), () => { throw Error('Claude input must pass translation'); }));
+  await engine.idle(); assert.equal(dispatched, 1); assert.equal((await store.list('session-test'))[0].forwardedInput, 'Hello');
 });
 test('cancelled input translation never dispatches Claude', async t => {
   const store = await fixture(t); const controller = new AbortController(); controller.abort();

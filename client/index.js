@@ -73,7 +73,7 @@ window.__ModuleLoader__.load({
       }
       const input = (field, props = {}) => h('input', { value: form[field], onChange: e => set(field, e.target.value), ...props });
       const save = () => perform('save', async () => {
-        const patch = { enabled: form.enabled, mode: form.mode, provider: form.provider, model: form.model, baseURL: form.baseURL, translateOutput: form.translateOutput, timeoutMs: Number(form.timeoutMs), retentionDays: Number(form.retentionDays) };
+        const patch = { mode: form.mode, provider: form.provider, model: form.model, baseURL: form.baseURL, translateOutput: form.translateOutput, timeoutMs: Number(form.timeoutMs), retentionDays: Number(form.retentionDays) };
         if (key.trim()) patch.apiKey = key.trim();
         await api('/config', patch); setKey(''); setAdjusted(false); setNote('Settings saved.'); await onSaved();
       });
@@ -102,7 +102,7 @@ window.__ModuleLoader__.load({
                 ...models.map(m => h('option', { key: m.id, value: m.id }, m.name && m.name !== m.id ? m.name + ' · ' + m.id : m.id))) : input('model', { id: 'dct-model', placeholder: 'Exact model ID' }),
               form.mode === 'route' ? h('button', { type: 'button', disabled: loadingModels || !form.provider, title: 'Refresh models', 'aria-label': 'Refresh models', onClick: () => setRefreshModels(n => n + 1) }, '↻') : null),
             h('label', { className: 'dct-toggle dct-setting-check' }, h('input', { type: 'checkbox', checked: form.translateOutput, onChange: e => set('translateOutput', e.target.checked) }), 'Translate responses'),
-            h('label', { className: 'dct-toggle' }, h('input', { type: 'checkbox', checked: form.enabled, onChange: e => set('enabled', e.target.checked) }), 'Enable for new sessions')),
+            h('span', { className: 'dct-muted' }, 'Claude Code translation is always on; other models use their original input.')),
           h('details', { className: 'dct-advanced' }, h('summary', null, 'Advanced'),
             h('fieldset', { className: 'dct-form', disabled: !!busy },
               h('label', { htmlFor: 'dct-timeout' }, 'Timeout (ms)'), input('timeoutMs', { id: 'dct-timeout', type: 'number', min: 1000, max: 120000 }),
@@ -194,12 +194,12 @@ window.__ModuleLoader__.load({
         }
         poll(); return () => { abort.abort(); clearTimeout(timer); };
       }, [sessionId, includeAux, query, cursor, rev, view]);
-      const enabled = state ? state.config.sessions[sessionId] ?? state.config.enabled : false;
-      async function toggle() { try { await api('/session', { sessionId, enabled: !enabled }); await refresh(); } catch (e) { setError(e.message); } }
+      const [, live] = useChannel(sessionId);
+      const enabled = live.loaded ? live.enabled : state?.policy?.enabled ?? false;
       const firstItem = (cursors.length - 1) * 20;
-      return h('div', { className: 'dct', 'data-version': '0.3.5' },
+      return h('div', { className: 'dct', 'data-version': '0.3.7' },
         h('header', { className: 'dct-head' }, h('h2', null, 'Translation runs'), h('span', { className: 'dct-muted dct-model', title: state?.config.model }, state?.config.model || 'No translation model'),
-          h('span', { className: 'dct-grow' }), h('label', { className: 'dct-toggle' }, h('input', { type: 'checkbox', checked: enabled, disabled: !state, onChange: toggle }), 'Enabled for this session'),
+          h('span', { className: 'dct-grow' }), h('span', { className: 'dct-muted', role: 'status' }, !live.loaded ? 'Checking session model…' : enabled ? 'Required for Claude Code' : 'Off for this model'),
           h('button', { type: 'button', className: 'dct-icon', title: 'Refresh runs', 'aria-label': 'Refresh runs', onClick: () => setRev(n => n + 1) }, '↻')),
         h('nav', { className: 'dct-nav', 'aria-label': 'Translation views' }, h('button', { type: 'button', 'aria-pressed': view === 'timeline', onClick: () => setView('timeline') }, 'Timeline', h('span', { className: 'dct-count' }, page.total || '0')),
           h('button', { type: 'button', 'aria-pressed': view === 'settings', onClick: () => setView('settings') }, 'Settings')),
@@ -354,7 +354,7 @@ window.__ModuleLoader__.load({
               for (const run of result.display ?? []) details.set(run.id, run);
               const staleConfig = pendingConfig > 0 || epoch !== configEpoch;
               revision = staleConfig ? '' : result.revision;
-              emit({ ...result, ...(staleConfig ? { enabled: snapshot.enabled, presentation: snapshot.presentation } : {}), loaded: true, error: '' }); trim();
+              emit({ ...result, ...(staleConfig ? { enabled: snapshot.enabled, policy: snapshot.policy, presentation: snapshot.presentation } : {}), loaded: true, error: '' }); trim();
             }
             scheduleBatch();
           }
@@ -379,7 +379,7 @@ window.__ModuleLoader__.load({
         detail: id => details.get(id),
         refresh,
         async preference(preference) { const previous = snapshot.presentation; pendingConfig++; configEpoch++; emit({ presentation: preference }); try { await api('/presentation', { sessionId, presentation: preference }); } catch (e) { emit({ presentation: previous }); throw e; } finally { pendingConfig--; revision = ''; refresh(); } },
-        async toggle() { const previous = snapshot.enabled; pendingConfig++; configEpoch++; emit({ enabled: !previous }); try { await api('/session', { sessionId, enabled: !previous }); } catch (e) { emit({ enabled: previous }); throw e; } finally { pendingConfig--; revision = ''; refresh(); } },
+        modelChanged() { configEpoch++; revision = ''; emit({ enabled: false, loaded: false, policy: undefined }); refresh(); },
         dispose() { stopped = true; pollEpoch++; abort.abort(); pollAbort?.abort(); clearTimeout(timer); clearTimeout(batchTimer); document.removeEventListener?.('visibilitychange', visibility); listeners.clear(); details.clear(); },
       };
       channels.set(sessionId, result);
@@ -393,8 +393,11 @@ window.__ModuleLoader__.load({
       useEffect(() => bus.connect(), [bus]);
       return [bus, state];
     }
-    function ReplyControls({ sessionId }) {
+    function ReplyControls({ sessionId, modelDirectory, loadModel }) {
       const [bus, state] = useChannel(sessionId);
+      const model = React.useSyncExternalStore(fn => modelDirectory.subscribe(fn), () => modelDirectory.getSnapshot());
+      useEffect(() => { void loadModel().catch(() => {}); }, [modelDirectory]);
+      useEffect(() => { bus.modelChanged(); }, [bus, model.current?.provider, model.current?.model]);
       const [busy, setBusy] = useState(false), [error, setError] = useState('');
       const root = useRef(null);
       useEffect(() => {
@@ -404,13 +407,13 @@ window.__ModuleLoader__.load({
       }, []);
       async function save(fn) { setBusy(true); setError(''); try { await fn(); } catch (e) { setError(e.message); } finally { setBusy(false); } }
       const language = { zh: 'ZH', en: 'EN', bilingual: 'ZH + EN' }[state.presentation.mode];
-      return h('details', { ref: root, className: 'dct-controls', 'data-translate-controls': '0.3.6', onKeyDown: e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } } },
-        h('summary', { title: 'Translation options', 'aria-label': 'Translation options' }, h('span', { className: 'dct-control-dot', 'data-enabled': state.enabled }), 'Translate', h('span', { className: 'dct-control-language' }, state.enabled ? language : 'Off')),
+      return h('details', { ref: root, className: 'dct-controls', 'data-translate-controls': '0.3.7', onKeyDown: e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } } },
+        h('summary', { title: 'Translation options', 'aria-label': 'Translation options' }, h('span', { className: 'dct-control-dot', 'data-enabled': state.enabled }), 'Translate', h('span', { className: 'dct-control-language' }, !state.loaded ? '…' : state.enabled ? language : 'Off')),
         h('div', { className: 'dct-control-panel', role: 'dialog', 'aria-label': 'Translation options' },
-          h('label', { className: 'dct-control-switch' }, h('input', { type: 'checkbox', checked: state.enabled, disabled: busy || !state.loaded, onChange: () => save(() => bus.toggle()) }), 'Enabled'),
-          h('label', null, 'Response language', h('select', { 'aria-label': 'Response language', value: state.presentation.mode, disabled: busy || !state.loaded, onChange: e => save(() => bus.preference({ ...state.presentation, mode: e.target.value })) },
+          h('label', { className: 'dct-control-switch', title: state.enabled ? 'Translation is required for Claude Code.' : 'Translation is off for this model.' }, h('input', { type: 'checkbox', checked: state.enabled, disabled: true, readOnly: true }), state.enabled ? 'Required for Claude Code' : 'Off for this model'),
+          h('label', null, 'Response language', h('select', { 'aria-label': 'Response language', value: state.presentation.mode, disabled: busy || !state.loaded || !state.enabled, onChange: e => save(() => bus.preference({ ...state.presentation, mode: e.target.value })) },
             h('option', { value: 'zh' }, 'Chinese'), h('option', { value: 'en' }, 'English'), h('option', { value: 'bilingual' }, 'Bilingual'))),
-          state.presentation.mode === 'bilingual' ? h('label', null, 'Bilingual layout', h('select', { 'aria-label': 'Bilingual layout', value: state.presentation.layout, disabled: busy, onChange: e => save(() => bus.preference({ ...state.presentation, layout: e.target.value })) },
+          state.presentation.mode === 'bilingual' ? h('label', null, 'Bilingual layout', h('select', { 'aria-label': 'Bilingual layout', value: state.presentation.layout, disabled: busy || !state.loaded || !state.enabled, onChange: e => save(() => bus.preference({ ...state.presentation, layout: e.target.value })) },
             h('option', { value: 'parallel' }, 'Side by side'), h('option', { value: 'stacked' }, 'Stacked'), h('option', { value: 'collapsed' }, 'Chinese + collapsed English'))) : null,
           error || state.error ? h('span', { role: 'alert' }, error || state.error) : null));
     }
@@ -491,7 +494,7 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(NS, { zh: { tab: 'Translation' }, en: { tab: 'Translation' } }), 'claude-translate: labels');
       ctx.effect(() => { const style = document.createElement('style'); style.dataset.claudeTranslate = ''; style.textContent = css + chatCSS; document.head.appendChild(style); return () => style.remove(); }, 'claude-translate: scoped style');
-      ctx.slots.inject('conversation.input.left', () => ctx.slots.register({ name: 'conversation.input.left', id: 'claude-translate-controls', order: 40 }, ReplyControls));
+      ctx.inject(['modelDirectories'], scope => scope.slots.inject('conversation.input.left', () => scope.slots.register({ name: 'conversation.input.left', id: 'claude-translate-controls', order: 40, inject: sessionId => { const directory = scope.modelDirectories.directoryFor(sessionId); return { modelDirectory: directory.store, loadModel: () => directory.load() }; } }, ReplyControls)));
       ctx.slots.inject('conversation.input.dock', () => followChatStore(ctx.slots));
       function User(props) {
         React.useSyncExternalStore(fn => ctx.slots.subscribe('conversation.chat.node', fn), () => ctx.slots.getVersion('conversation.chat.node'));

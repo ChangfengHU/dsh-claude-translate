@@ -149,7 +149,7 @@ test('the existing authenticated RPC transports live changes without reading ful
   await store.saveConfig({ enabled: true });
   const run = { id: 'tr_1234', sessionId: 'session-live', purpose: 'conversation', status: 'running', startedAt: Date.now(), rawOutput: 'Hello', translatedOutput: '', meter: {} };
   store.active.set(run.id, run); await store.save(run);
-  const rpc = createRpcHandler({ store, engine: {}, credentials: {}, llm: {} });
+  const rpc = createRpcHandler({ store, engine: {}, credentials: {}, llm: { listProviders: () => [{ id: 'claude-local', name: 'Claude Code' }] }, selection: async () => ({ provider: 'claude-local' }) });
   const first = await rpc('chat', { session: run.sessionId });
   const controller = new AbortController(); const pending = rpc('watch', { session: run.sessionId, after: first.value.watchRevision, revision: first.value.revision }, controller.signal);
   await tick(); run.outputPreview = '你好'; store.touch(run);

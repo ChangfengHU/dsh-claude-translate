@@ -11,13 +11,42 @@ async function client(fetch, open = false, hooks) {
     useState: value => [typeof value === 'function' ? value() : value === false ? open : value, () => {}],
     useEffect() {}, useRef: value => hooks ? (hooks.refs[hooks.cursor++] ??= { current: value }) : ({ current: value }), useMemo: fn => fn(), useSyncExternalStore: (_fn, snapshot) => snapshot(),
   };
-  const source = (await readFile(new URL('../client/index.js', import.meta.url), 'utf8')).replace("return { name: NS, inject: ['slots', 'locale'], apply };", "return { name: NS, inject: ['slots', 'locale'], apply, channel, TranslatedAssistant, CapturedUser };");
+  const source = (await readFile(new URL('../client/index.js', import.meta.url), 'utf8')).replace("return { name: NS, inject: ['slots', 'locale'], apply };", "return { name: NS, inject: ['slots', 'locale'], apply, channel, TranslatedAssistant, CapturedUser, ReplyControls };");
   vm.runInNewContext(source, { window: { __ModuleLoader__: { load: module => { plugin = module.factory(() => react); } } }, URL, URLSearchParams, AbortController, crypto, setTimeout, clearTimeout, setInterval, clearInterval, document: { hidden: false }, fetch });
   return plugin;
 }
 const response = value => ({ ok: true, json: async () => ({ result: { ok: true, value } }) });
 function all(node, predicate) { const values = []; function visit(n) { if (!n || typeof n !== 'object') return; if (predicate(n)) values.push(n); for (const child of n.children ?? []) Array.isArray(child) ? child.forEach(visit) : visit(child); } visit(node); return values; }
 const texts = tree => all(tree, node => !!node.props?.node).flatMap(n => n.props.node.data.blocks.filter(b => b.kind === 'text').map(b => b.text));
+
+test('model policy is read-only in the composer and other models cannot show enabled translation', async () => {
+  for (const enabled of [true, false]) {
+    const plugin = await client(async () => response({ runs: [], revision: 'one', enabled, policy: { enabled, required: enabled, editable: false }, presentation: { mode: 'zh', layout: 'parallel' } }));
+    const bus = plugin.channel('session-policy'), disconnect = bus.connect(); await tick();
+    const modelDirectory = { subscribe: () => () => {}, getSnapshot: () => ({ current: { provider: enabled ? 'claude-local' : 'codex-local' } }) };
+    const tree = plugin.ReplyControls({ sessionId: 'session-policy', modelDirectory, loadModel: async () => {} });
+    const checkbox = all(tree, n => n.type === 'input' && n.props.type === 'checkbox')[0];
+    assert.equal(checkbox.props.checked, enabled); assert.equal(checkbox.props.disabled, true); assert.equal(checkbox.props.onChange, undefined);
+    const language = all(tree, n => n.type === 'select' && n.props['aria-label'] === 'Response language')[0];
+    assert.equal(language.props.disabled, !enabled);
+    disconnect(); bus.dispose();
+  }
+});
+
+test('model changes cancel stale policy reads and never post a session toggle', async () => {
+  let release, provider = 'codex-local', reads = 0; const writes = [];
+  const plugin = await client(async (url, request) => {
+    if (!url.endsWith('/chat')) { writes.push(url); return response({ ok: true }); }
+    if (++reads === 1) return new Promise(resolve => { release = () => resolve(response({ runs: [], revision: 'stale', enabled: true, presentation: { mode: 'zh', layout: 'parallel' } })); });
+    return response({ runs: [], revision: provider, enabled: provider === 'claude-local', policy: { provider }, presentation: { mode: 'zh', layout: 'parallel' } });
+  });
+  const bus = plugin.channel('session-switch'), disconnect = bus.connect(); await tick();
+  bus.modelChanged(); assert.equal(bus.getSnapshot().loaded, false); release(); await tick(60);
+  assert.equal(bus.getSnapshot().enabled, false); assert.equal(bus.getSnapshot().policy.provider, 'codex-local');
+  provider = 'claude-local'; bus.modelChanged(); await tick(60);
+  assert.equal(bus.getSnapshot().enabled, true); assert.equal(bus.getSnapshot().policy.provider, 'claude-local');
+  assert.deepEqual(writes, []); disconnect(); bus.dispose();
+});
 
 test('the pipeline stays anchored below the input throughout the run without duplication', async () => {
   for (const firstEnglishAt of [undefined, 3]) {

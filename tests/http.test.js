@@ -14,12 +14,14 @@ async function fixture(t, admit = () => ({})) {
   const store = new Store(directory); await store.init(); let secret;
   const credentials = { describe: async () => ({ configured: !!secret }), set: async (_, value) => { secret = value; }, unset: async () => { secret = undefined; } };
   const engine = { translator: { cache: new Map(), translate: async () => 'Hello, connection verified.' } };
-  const llm = { listProviders: () => [{ id: 'qwen', name: 'Qwen' }], listModels: async () => [{ id: 'qwen-turbo' }] };
-  const server = createServer(createHandler({ store, engine, credentials, llm, admit })); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const selections = new Map();
+  const llm = { listProviders: () => [{ id: 'qwen', name: 'Qwen' }, { id: 'claude-local', name: 'Claude Code' }], listModels: async () => [{ id: 'qwen-turbo' }] };
+  const selection = async id => selections.get(id) ?? { provider: 'claude-local', model: 'default' };
+  const server = createServer(createHandler({ store, engine, credentials, llm, admit, selection })); server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const base = 'http://127.0.0.1:' + server.address().port;
   t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(directory, { recursive: true, force: true }); });
   const post = (path, value, origin = base) => fetch(base + '/api/claude-translate' + path, { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify(value) });
-  return { store, base, post };
+  return { store, base, post, selections };
 }
 test('connection admission fails closed', async t => {
   const { base } = await fixture(t, () => ({ rejection: 401 }));
@@ -42,10 +44,30 @@ test('invalid configuration cannot mutate a credential first', async t => {
   assert.equal((await post('/config', { apiKey: 'private-test-key', unknown: true })).status, 400);
   const state = await (await fetch(base + '/api/claude-translate/state')).json(); assert.equal(state.credentialConfigured, false);
 });
-test('session toggles preserve other sessions', async t => {
-  const { post, store } = await fixture(t);
-  await Promise.all([post('/session', { sessionId: 'session-a', enabled: true }), post('/session', { sessionId: 'session-b', enabled: false })]);
-  assert.deepEqual(store.config.sessions, { 'session-a': true, 'session-b': false });
+test('a manual toggle cannot bypass model policy or write stale session settings', async t => {
+  const { post, store, selections } = await fixture(t);
+  selections.set('session-b', { provider: 'qwen', model: 'qwen-flash' });
+  assert.equal((await post('/session', { sessionId: 'session-a', enabled: false })).status, 400);
+  assert.equal((await post('/session', { sessionId: 'session-b', enabled: true })).status, 400);
+  assert.equal((await post('/session', { sessionId: 'session-a', enabled: true })).status, 200);
+  assert.equal((await post('/session', { sessionId: 'session-b', enabled: false })).status, 200);
+  assert.deepEqual(store.config.sessions, {});
+});
+test('chat policy follows Claude to every other source and back without a settings write', async t => {
+  const { base, store, selections } = await fixture(t);
+  await store.saveConfig({ enabled: false, sessions: { 'session-a': false, 'session-b': true } });
+  const initial = JSON.stringify(store.config);
+  let revision;
+  for (const provider of ['claude-local', 'qwen', 'claude-local', 'deepseek', 'codex-local', 'claude-local']) {
+    selections.set('session-a', { provider, model: 'registered-model' });
+    const result = await (await fetch(base + '/api/claude-translate/chat?session=session-a')).json();
+    assert.equal(result.enabled, provider === 'claude-local');
+    assert.equal(result.policy.required, provider === 'claude-local');
+    assert.equal(result.policy.editable, false); assert.equal(result.policy.provider, provider);
+    if (revision) assert.notEqual(result.revision, revision);
+    revision = result.revision;
+  }
+  assert.equal(JSON.stringify(store.config), initial);
 });
 test('model discovery refuses Claude translation routes', async t => {
   const { base } = await fixture(t);

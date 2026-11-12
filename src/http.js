@@ -4,6 +4,7 @@ import { validatePresentation } from './presentation.js';
 import { hash } from './text.js';
 import { initialDisplay } from './chat-display.js';
 import { claudeRoutes, selectTranslationModel, translationModels, validateSelection } from './catalog.js';
+import { translationPolicy } from './policy.js';
 
 export const PREFIX = '/api/claude-translate';
 export async function readJson(req, maxBytes = 20000) {
@@ -15,7 +16,12 @@ export async function readJson(req, maxBytes = 20000) {
   return value;
 }
 
-export function createHandler({ store, engine, credentials, llm, admit, reconcile = async () => {} }) {
+export function createHandler({ store, engine, credentials, llm, admit, reconcile = async () => {}, selection = async () => undefined }) {
+  const policyFor = async sessionId => {
+    if (!sessionId) return translationPolicy(undefined, []);
+    store.session(sessionId);
+    return translationPolicy((await selection(sessionId))?.provider, claudeRoutes(llm.listProviders()));
+  };
   return async (req, res) => {
     function json(status, value) {
       const body = JSON.stringify(value);
@@ -42,7 +48,7 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
         const targets = claudeRoutes(providers);
         const config = { ...store.config, targetProviders: targets, sessions: session && Object.hasOwn(store.config.sessions, session) ? { [session]: store.config.sessions[session] } : {}, sessionPresentation: session && store.config.sessionPresentation[session] ? { [session]: store.config.sessionPresentation[session] } : {} };
         const qwen = providers.find(p => p.name === 'Qwen' && p.models.some(m => m.id === 'qwen-flash'));
-        json(200, { version: '0.3.6', config, recommendation: qwen ? { provider: qwen.id, model: 'qwen-flash' } : null, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size, displayJobs: engine.jobs?.size ?? 0,
+        json(200, { version: '0.3.7', config, policy: await policyFor(session), recommendation: qwen ? { provider: qwen.id, model: 'qwen-flash' } : null, credentialConfigured: info.configured ?? info.present ?? false, providers, active: store.active.size, displayJobs: engine.jobs?.size ?? 0,
           environment: { claudeRoute: targets.length > 0, codexRoute: providers.some(p => /codex/i.test(p.id)) },
           history: { maxRuns: store.maxRuns, maxBytes: store.maxBytes } });
       } else if (req.method === 'GET' && (action === '/chat' || action === '/watch')) {
@@ -51,10 +57,11 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
         else await reconcile(session);
         const runs = store.displayPage(session);
         const presentation = store.config.sessionPresentation[session] ?? store.config.presentation;
-        const enabled = store.config.sessions[session] ?? store.config.enabled;
-        const revision = hash(JSON.stringify([runs, presentation, enabled]));
+        const policy = await policyFor(session);
+        const enabled = policy.enabled;
+        const revision = hash(JSON.stringify([runs, presentation, policy]));
         const watchRevision = store.liveRevision(session);
-        json(200, revision === url.searchParams.get('revision') ? { unchanged: true, revision, watchRevision } : { revision, watchRevision, runs, presentation, enabled, display: enabled ? initialDisplay(store, session, runs) : [] });
+        json(200, revision === url.searchParams.get('revision') ? { unchanged: true, revision, watchRevision } : { revision, watchRevision, runs, presentation, enabled, policy, display: enabled ? initialDisplay(store, session, runs) : [] });
       } else if (req.method === 'GET' && action === '/display') {
         const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean);
         json(200, { runs: store.displayRuns(session ?? '', ids) });
@@ -94,8 +101,9 @@ export function createHandler({ store, engine, credentials, llm, admit, reconcil
       } else if (req.method === 'POST' && action === '/session') {
         const body = await readJson(req);
         if (typeof body.sessionId !== 'string' || !/^[A-Za-z0-9_-]{1,160}$/.test(body.sessionId) || typeof body.enabled !== 'boolean') throw failure('INVALID_CONFIG', 'Invalid session toggle.');
-        await store.saveConfig(c => ({ sessions: { ...c.sessions, [body.sessionId]: body.enabled } }));
-        json(200, { ok: true });
+        const policy = await policyFor(body.sessionId);
+        if (body.enabled !== policy.enabled) throw failure('INVALID_CONFIG', policy.required ? 'Translation is required for Claude Code and cannot be disabled.' : 'Translation is off for this model. Switch to Claude Code to use translation.');
+        json(200, { ok: true, policy });
       } else if (req.method === 'POST' && action === '/test') {
         const body = await readJson(req);
         const text = body.text ?? '帮我列出明天出门前需要检查的三件事。';

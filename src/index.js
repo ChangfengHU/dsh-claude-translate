@@ -7,9 +7,10 @@ import { createExecutor } from './provider.js';
 import { createRpcHandler, CHANNEL } from './rpc.js';
 import { StreamBypass } from './bypass.js';
 import { currentPosition, legacyPosition, userInputIdentity, lastUserText } from './presentation.js';
+import { failure } from './text.js';
 
 export const name = 'dsh-claude-translate';
-export const inject = ['llm', 'credentials', 'connection', 'sessions'];
+export const inject = ['llm', 'credentials', 'connection', 'sessions', 'apiProxy'];
 
 export async function apply(ctx) {
   const profileIndex = process.argv.indexOf('--profile');
@@ -50,5 +51,10 @@ export async function apply(ctx) {
     }
   };
   ctx.on('llm/stream', (options, next) => bypass.active ? next() : engine.stream(options, next));
-  ctx.connection.rpc.handle(CHANNEL, createRpcHandler({ store, engine, credentials, llm, reconcile }), { authority: 'trusted-host' });
+  const selection = async sessionId => {
+    const response = await ctx.apiProxy.sessions.models({ type: 'client-request', rpcId: crypto.randomUUID(), method: 'session.models', payload: { sessionId } });
+    if (!response.result.ok) throw failure('TRANSLATION_SESSION_UNAVAILABLE', 'The current session model could not be read. Refresh the session.');
+    return response.result.value.current;
+  };
+  ctx.connection.rpc.handle(CHANNEL, createRpcHandler({ store, engine, credentials, llm, reconcile, selection }), { authority: 'trusted-host' });
 }

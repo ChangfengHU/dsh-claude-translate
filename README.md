@@ -1,5 +1,16 @@
 # DSH Claude Translate
 
+### 0.3.7: Model-Scoped Translation
+
+Selecting Claude Code automatically requires translation; it cannot be disabled
+by an old session toggle or a direct toggle request. Selecting Qwen, DeepSeek,
+Codex or another non-Claude execution route turns translation off. The composer
+and Translation tab follow the live session model, not a separately saved switch.
+Response language and bilingual layout remain configurable for Claude sessions.
+Legacy enable flags are retained for config compatibility but no longer control
+execution. The translation source, API credentials and global chat default are
+not changed by switching session models.
+
 ### 0.3.6: Stable Streaming Layout
 
 Input English is expanded by default and prepared before background context,
@@ -85,12 +96,12 @@ Chinese display translation in a Trajectory-style session timeline.
    browser localStorage.
 3. Save and test the configuration. Testing translates a sample only; it does not
    call Claude or run tools.
-4. Select Claude Code in DSH's normal model picker and enable translation for this
-   session. Continue using the **original chat composer**. English input works too:
+4. Select Claude Code in DSH's normal model picker; translation is automatically
+   required. Continue using the **original chat composer**. English input works too:
    English-only prose bypasses paid input translation.
 
-After setup there is no copy/paste translation step. Global default enablement is
-optional and explicit; the plugin never switches your main conversation model.
+After setup there is no copy/paste translation step. Translation follows the
+selected model; the plugin never switches your main conversation model.
 
 The repository's release assets contain the translation package. A companion
 adapter release must be installed separately; this repository does not bundle a
