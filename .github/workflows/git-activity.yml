@@ -1,0 +1,14 @@
+# Reports this repository's pushes to https://blender.vyibc.com/git/ingest.
+name: Git activity
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    uses: ChangfengHU/blender-mcp/.github/workflows/git-activity-reusable.yml@main
+    secrets:
+      GIT_ACTIVITY_INGEST_TOKEN: ${{ secrets.GIT_ACTIVITY_INGEST_TOKEN }}
