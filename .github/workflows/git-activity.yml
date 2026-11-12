@@ -1,4 +1,5 @@
 # Reports this repository's pushes to https://blender.vyibc.com/git/ingest.
+# Inlined because this public repository cannot call the private reusable workflow.
 name: Git activity
 
 on:
@@ -9,6 +10,28 @@ permissions:
 
 jobs:
   report:
-    uses: ChangfengHU/blender-mcp/.github/workflows/git-activity-reusable.yml@main
-    secrets:
-      GIT_ACTIVITY_INGEST_TOKEN: ${{ secrets.GIT_ACTIVITY_INGEST_TOKEN }}
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST push payload
+        env:
+          INGEST_URL: https://blender.vyibc.com/git/ingest
+          INGEST_TOKEN: ${{ secrets.GIT_ACTIVITY_INGEST_TOKEN }}
+          DELIVERY: ${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ -z "${INGEST_TOKEN}" ]; then
+            echo "GIT_ACTIVITY_INGEST_TOKEN is not set; skipping git activity ingest"
+            exit 0
+          fi
+          tmp=$(mktemp)
+          trap 'rm -f "$tmp"' EXIT
+          curl --fail-with-body --silent --show-error --max-time 20 \
+            -X POST "$INGEST_URL" \
+            -H "Authorization: Bearer ${INGEST_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Delivery: ${DELIVERY}" \
+            -H "X-GitHub-Event: push" \
+            --data-binary @"$GITHUB_EVENT_PATH" \
+            -o "$tmp"
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); print("git activity ingest ok inserted=%s duplicate=%s" % (d.get("inserted"), d.get("duplicate")))' "$tmp"
